@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Ropa Engineering — Workshop &amp; Onsite Planner</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js"></script>
+<style>
+:root{
+  --bg:#0a0a0a; --panel:#0f0f0f; --panel2:#141414; --line:#2a2a2a; --line2:#333;
+  --gold:#daa520; --gold-bright:#ffd700; --gold-dim:rgba(218,165,32,.12);
+  --text:#daa520; --muted:#888; --muted2:#666;
+  --green:#3fb950; --blue:#58a6ff; --red:#f85149; --amber:#d29922; --slate:#8b949e;
+}
+*{box-sizing:border-box;}
+body{margin:0;background:var(--bg);color:var(--text);font-family:'Segoe UI',Roboto,Arial,sans-serif;font-size:13px;}
+::-webkit-scrollbar{height:8px;width:8px;}
+::-webkit-scrollbar-thumb{background:var(--line2);border-radius:4px;}
+mono, .mono{font-family:'SF Mono',Consolas,'Courier New',monospace;}
+a{color:var(--gold);}
+
+header.topbar{position:sticky;top:0;z-index:50;background:var(--panel);border-bottom:1px solid var(--line);padding:10px 18px;display:flex;align-items:center;gap:14px;flex-wrap:wrap;}
+.brand{display:flex;align-items:center;gap:8px;font-weight:700;font-size:16px;white-space:nowrap;}
+.brand .factory{font-size:18px;}
+.brand small{display:block;font-weight:400;color:var(--muted);font-size:10px;letter-spacing:.5px;}
+.spacer{flex:1;}
+.btn{background:transparent;border:1px solid rgba(218,165,32,.35);color:var(--gold);padding:6px 12px;border-radius:5px;font-size:12px;cursor:pointer;transition:.15s;white-space:nowrap;}
+.btn:hover{background:var(--gold-dim);}
+.btn.solid{background:var(--gold);color:#000;font-weight:600;border-color:var(--gold);}
+.btn.solid:hover{background:var(--gold-bright);}
+.btn.small{padding:3px 8px;font-size:11px;}
+.btn.danger{border-color:rgba(248,81,73,.4);color:var(--red);}
+.btn.danger:hover{background:rgba(248,81,73,.1);}
+.btn:disabled{opacity:.4;cursor:not-allowed;}
+
+.subbar{background:var(--panel);border-bottom:1px solid var(--line);padding:8px 18px;display:flex;align-items:center;gap:18px;flex-wrap:wrap;}
+.subbar .pname{font-weight:600;}
+.stat{display:flex;flex-direction:column;align-items:center;padding:0 12px;border-left:1px solid var(--line);}
+.stat:first-child{border-left:none;}
+.stat .v{font-size:18px;font-weight:700;color:var(--gold);}
+.stat .l{font-size:10px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;}
+
+nav.tabs{display:flex;gap:2px;background:var(--panel);border-bottom:1px solid var(--line);padding:0 18px;overflow-x:auto;}
+nav.tabs button{background:transparent;border:none;border-bottom:2px solid transparent;color:var(--muted);padding:10px 16px;font-size:12.5px;cursor:pointer;white-space:nowrap;font-weight:600;letter-spacing:.3px;}
+nav.tabs button:hover{color:var(--gold);}
+nav.tabs button.active{color:var(--gold);border-bottom-color:var(--gold);}
+
+main{padding:18px;max-width:1500px;margin:0 auto;}
+.panel{display:none;}
+.panel.active{display:block;}
+
+.card{background:var(--panel);border:1px solid var(--line);border-radius:8px;padding:16px;margin-bottom:16px;}
+.card h3{margin:0 0 12px;font-size:13px;text-transform:uppercase;letter-spacing:.6px;color:var(--gold-bright);border-bottom:1px solid var(--line);padding-bottom:8px;}
+.grid{display:grid;gap:12px;}
+.grid.cols-2{grid-template-columns:1fr 1fr;}
+.grid.cols-3{grid-template-columns:repeat(3,1fr);}
+.grid.cols-4{grid-template-columns:repeat(4,1fr);}
+@media(max-width:800px){.grid.cols-2,.grid.cols-3,.grid.cols-4{grid-template-columns:1fr;}}
+
+label{display:block;font-size:11px;color:var(--muted);margin-bottom:4px;text-transform:uppercase;letter-spacing:.4px;}
+input,select,textarea{width:100%;background:#1a1a1a;border:1px solid var(--line2);color:var(--gold);padding:7px 9px;border-radius:5px;font-size:13px;}
+input:focus,select:focus,textarea:focus{outline:none;border-color:var(--gold);}
+input::placeholder,textarea::placeholder{color:var(--muted2);}
+.field{margin-bottom:2px;}
+
+table{width:100%;border-collapse:collapse;font-size:12px;}
+th{background:#161616;color:var(--muted);text-transform:uppercase;font-size:10px;letter-spacing:.4px;padding:8px 6px;text-align:left;border-bottom:1px solid var(--line2);position:sticky;top:0;}
+td{padding:6px;border-bottom:1px solid #1e1e1e;vertical-align:middle;}
+tr:hover td{background:#131313;}
+td input,td select{padding:4px 6px;font-size:12px;background:#161616;}
+.table-wrap{overflow-x:auto;border:1px solid var(--line);border-radius:8px;}
+
+.badge{display:inline-block;padding:2px 8px;border-radius:10px;font-size:10px;font-weight:700;text-transform:uppercase;letter-spacing:.3px;white-space:nowrap;}
+.badge.completed{background:rgba(63,185,80,.15);color:var(--green);border:1px solid rgba(63,185,80,.3);}
+.badge.in_progress{background:rgba(88,166,255,.15);color:var(--blue);border:1px solid rgba(88,166,255,.3);}
+.badge.on_target{background:rgba(63,185,80,.15);color:var(--green);border:1px solid rgba(63,185,80,.3);}
+.badge.behind{background:rgba(248,81,73,.15);color:var(--red);border:1px solid rgba(248,81,73,.3);}
+.badge.on_hold{background:rgba(210,153,34,.15);color:var(--amber);border:1px solid rgba(210,153,34,.3);}
+.badge.pending{background:rgba(139,148,158,.15);color:var(--slate);border:1px solid rgba(139,148,158,.3);}
+
+.toolbar{display:flex;gap:8px;align-items:center;margin-bottom:12px;flex-wrap:wrap;}
+.toolbar .spacer{flex:1;}
+
+.gantt-row{display:flex;align-items:center;gap:10px;padding:6px 0;border-bottom:1px solid #1a1a1a;}
+.gantt-label{width:220px;flex-shrink:0;font-size:11.5px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;}
+.gantt-track{flex:1;height:20px;background:#161616;border-radius:4px;position:relative;}
+.gantt-bar{position:absolute;top:2px;bottom:2px;border-radius:3px;font-size:9px;display:flex;align-items:center;padding:0 6px;color:#0a0a0a;font-weight:700;overflow:hidden;white-space:nowrap;}
+.week-header{display:flex;gap:10px;padding:4px 0 8px;font-size:10px;color:var(--muted);}
+.week-header .gantt-label{width:220px;flex-shrink:0;}
+
+.progress-outer{background:#161616;border-radius:4px;height:8px;overflow:hidden;}
+.progress-inner{height:100%;background:linear-gradient(90deg,var(--gold),var(--gold-bright));}
+
+.empty{text-align:center;padding:50px 20px;color:var(--muted);}
+.empty .big{font-size:32px;margin-bottom:10px;}
+
+.modal-bg{display:none;position:fixed;inset:0;background:rgba(0,0,0,.75);z-index:100;align-items:center;justify-content:center;padding:20px;}
+.modal-bg.show{display:flex;}
+.modal{background:var(--panel2);border:1px solid var(--line2);border-radius:10px;padding:22px;max-width:560px;width:100%;max-height:88vh;overflow-y:auto;}
+.modal h3{margin-top:0;}
+.modal-close{float:right;background:transparent;border:none;color:var(--muted);font-size:20px;cursor:pointer;}
+
+.dropzone{border:2px dashed var(--line2);border-radius:10px;padding:36px;text-align:center;cursor:pointer;transition:.15s;}
+.dropzone:hover,.dropzone.drag{border-color:var(--gold);background:var(--gold-dim);}
+.dropzone .icon{font-size:36px;margin-bottom:8px;}
+
+.review-row{display:grid;grid-template-columns:24px 1fr 1fr 1fr 70px 55px 1.2fr;gap:8px;align-items:center;padding:6px 4px;border-bottom:1px solid #1a1a1a;font-size:12px;}
+.review-head{font-weight:700;color:var(--muted);font-size:10px;text-transform:uppercase;}
+
+.toast{position:fixed;bottom:20px;right:20px;background:var(--panel2);border:1px solid var(--gold);color:var(--gold);padding:10px 18px;border-radius:8px;font-size:13px;z-index:200;opacity:0;transform:translateY(10px);transition:.25s;pointer-events:none;}
+.toast.show{opacity:1;transform:translateY(0);}
+
+.icon-btn{background:transparent;border:none;color:var(--muted);cursor:pointer;font-size:14px;padding:2px 6px;}
+.icon-btn:hover{color:var(--red);}
+
+.hint{font-size:11px;color:var(--muted2);margin-top:4px;}
+.section-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;}
+.pill{display:inline-block;background:#1a1a1a;border:1px solid var(--line2);border-radius:12px;padding:2px 10px;font-size:11px;margin-right:6px;}
+.spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line2);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px;}
+@keyframes spin{to{transform:rotate(360deg);}}
+
+@media print{
+  .no-print{display:none !important;}
+  body{background:#fff;color:#000;}
+  .card,.table-wrap{border-color:#999;}
+  th{background:#eee;color:#000;}
+  td{color:#000;}
+}
+</style>
+</head>
+<body>
+
+<header class="topbar no-print">
+  <div class="brand">🏭 <div>ROPA WORKSHOP &amp; ONSITE PLANNER<small>Fabrication &amp; erection scheduling — Ropa Engineering</small></div></div>
+  <div class="spacer"></div>
+  <button class="btn" onclick="openProjectsModal()">📁 Projects</button>
+  <button class="btn" onclick="saveProject()">☁ Save</button>
+  <button class="btn" onclick="exportExcel()">⬇ Export XLSX</button>
+  <button class="btn" onclick="window.print()">🖨 Print</button>
+  <button class="btn" onclick="openSettingsModal()">⚙ Settings</button>
+</header>
+
+<div class="subbar no-print">
+  <span class="pname" id="hdrProjectName">Untitled Project</span>
+  <span class="pill mono" id="hdrSyncState">not synced</span>
+  <div class="spacer"></div>
+  <div class="stat"><div class="v" id="statMembers">0</div><div class="l">Members</div></div>
+  <div class="stat"><div class="v" id="statQty">0</div><div class="l">Total Qty</div></div>
+  <div class="stat"><div class="v" id="statWorkshopDays">0</div><div class="l">Workshop Days</div></div>
+  <div class="stat"><div class="v" id="statOnsiteDays">0</div><div class="l">Onsite Days</div></div>
+  <div class="stat"><div class="v" id="statProgress">0%</div><div class="l">Progress</div></div>
+</div>
+
+<nav class="tabs no-print">
+  <button class="tab-btn active" data-tab="setup" onclick="switchTab('setup')">1 · Project Setup</button>
+  <button class="tab-btn" data-tab="members" onclick="switchTab('members')">2 · Members</button>
+  <button class="tab-btn" data-tab="drawing" onclick="switchTab('drawing')">3 · Drawing Import (AI)</button>
+  <button class="tab-btn" data-tab="workshop" onclick="switchTab('workshop')">Workshop Schedule</button>
+  <button class="tab-btn" data-tab="onsite" onclick="switchTab('onsite')">Onsite Schedule</button>
+  <button class="tab-btn" data-tab="combined" onclick="switchTab('combined')">Combined View</button>
+</nav>
+
+<main>
+
+  <!-- ===================== SETUP TAB ===================== -->
+  <section class="panel active" id="panel-setup">
+    <div class="card">
+      <h3>Project Information</h3>
+      <div class="grid cols-4">
+        <div class="field"><label>Project Name</label><input id="p_name" oninput="onProjectField('name',this.value)"></div>
+        <div class="field"><label>Client</label><input id="p_client" oninput="onProjectField('client',this.value)"></div>
+        <div class="field"><label>Project Number</label><input id="p_projectNumber" oninput="onProjectField('projectNumber',this.value)"></div>
+        <div class="field"><label>Site Location</label><input id="p_siteLocation" oninput="onProjectField('siteLocation',this.value)"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Schedule Parameters</h3>
+      <div class="grid cols-4">
+        <div class="field"><label>Start Date</label><input type="date" id="p_startDate" oninput="onProjectField('startDate',this.value)"></div>
+        <div class="field"><label>Target Completion</label><input type="date" id="p_targetDate" oninput="onProjectField('targetDate',this.value)"></div>
+        <div class="field"><label>Working Days / Week</label>
+          <select id="p_workingDaysPerWeek" onchange="onProjectField('workingDaysPerWeek',Number(this.value))">
+            <option value="5">5 (Mon–Fri)</option><option value="6" selected>6 (Mon–Sat)</option><option value="7">7</option>
+          </select>
+        </div>
+        <div class="field"><label>Daily Working Hours</label><input type="number" id="p_dailyWorkingHours" value="8" oninput="onProjectField('dailyWorkingHours',Number(this.value))"></div>
+      </div>
+    </div>
+
+    <div class="card">
+      <h3>Site &amp; Crane</h3>
+      <div class="grid cols-4">
+        <div class="field"><label>Crane Available</label>
+          <select id="p_craneAvailable" onchange="onProjectField('craneAvailable',this.value==='true')">
+            <option value="true">Yes</option><option value="false">No</option>
+          </select>
+        </div>
+        <div class="field"><label>Crane Type</label><input id="p_craneType" oninput="onProjectField('craneType',this.value)" placeholder="e.g. Mobile 25T"></div>
+        <div class="field"><label>Max Crane Capacity (T)</label><input type="number" id="p_maxCraneCapacity" oninput="onProjectField('maxCraneCapacity',Number(this.value))"></div>
+        <div class="field"><label>Work Height (m)</label><input type="number" id="p_workHeight" oninput="onProjectField('workHeight',Number(this.value))"></div>
+      </div>
+      <div class="grid cols-4" style="margin-top:12px;">
+        <div class="field"><label>Site Access</label><input id="p_siteAccess" oninput="onProjectField('siteAccess',this.value)" placeholder="e.g. Good, tarmac road"></div>
+        <div class="field"><label>Weather Risk Factor (%)</label><input type="number" id="p_weatherRiskFactor" oninput="onProjectField('weatherRiskFactor',Number(this.value))"></div>
+        <div class="field"><label>Complexity Factor (%)</label><input type="number" id="p_complexityFactor" oninput="onProjectField('complexityFactor',Number(this.value))"></div>
+        <div class="field"><label>Contingency Factor (%)</label><input type="number" id="p_contingencyFactor" oninput="onProjectField('contingencyFactor',Number(this.value))"></div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== MEMBERS TAB ===================== -->
+  <section class="panel" id="panel-members">
+    <div class="card">
+      <div class="toolbar">
+        <h3 style="border:none;margin:0;">Steel Members</h3>
+        <div class="spacer"></div>
+        <button class="btn" onclick="addMemberRow()">+ Add Member</button>
+        <button class="btn solid" onclick="autoCalcDates('workshop')">Auto-schedule Workshop</button>
+        <button class="btn solid" onclick="autoCalcDates('onsite')">Auto-schedule Onsite</button>
+      </div>
+      <div class="table-wrap">
+        <table>
+          <thead><tr>
+            <th style="width:26px;"></th>
+            <th>Code</th><th style="min-width:170px;">Description</th><th>Category</th><th>Section</th>
+            <th>Unit</th><th>Qty</th><th>Weight(kg)</th><th>Length(m)</th>
+            <th>Complexity</th><th>Lifting</th><th>Out/Day</th><th>Crew</th><th style="width:26px;"></th>
+          </tr></thead>
+          <tbody id="membersBody"></tbody>
+        </table>
+      </div>
+      <div class="empty" id="membersEmpty" style="display:none;">
+        <div class="big">📋</div>
+        No members yet. Add one manually, or use <b>Drawing Import (AI)</b> to pull members straight off a scanned drawing.
+      </div>
+    </div>
+  </section>
+
+  <!-- ===================== DRAWING IMPORT TAB ===================== -->
+  <section class="panel" id="panel-drawing">
+    <div class="card">
+      <h3>Import Members from a Drawing</h3>
+      <p class="hint" style="font-size:12px;color:var(--muted);margin-top:-4px;">
+        Upload a scanned GA / erection drawing (PDF or image). The AI reads the member callouts (e.g. "TRUSS SHS75x75x3.0",
+        "PURLIN CFLZ150*50*20*2.0") and drafts a member list you can review before adding it to the project.
+        This reads labels on the drawing and makes a best-effort quantity estimate where members are visibly countable —
+        it does <b>not</b> compute a certified take-off. Always verify quantities, lengths and weights against the
+        drawing / MTO yourself before relying on them.
+      </p>
+      <div class="grid cols-2" style="max-width:520px;margin-bottom:14px;">
+        <div class="field">
+          <label>AI Provider</label>
+          <select id="aiProvider" onchange="checkApiKeyWarning()">
+            <option value="claude">Claude (Anthropic)</option>
+            <option value="gemini">Gemini (Google — free tier)</option>
+          </select>
+        </div>
+        <div class="field" style="align-self:end;">
+          <div class="hint" style="margin:0;">Gemini's free tier has no cost for typical use. Claude tends to read dense/cluttered drawings a bit more reliably.</div>
+        </div>
+      </div>
+      <div id="dropzone" class="dropzone" onclick="document.getElementById('fileInput').click()">
+        <div class="icon">📐</div>
+        <div><b>Click to upload</b> or drag a PDF / image here</div>
+        <div class="hint">PDF pages are rendered client-side and sent as images. Multi-page PDFs: first 6 pages are used.</div>
+      </div>
+      <input type="file" id="fileInput" accept=".pdf,image/*" style="display:none" onchange="handleFileSelect(event)">
+      <div id="apiKeyWarning" class="hint" style="display:none;color:var(--amber);margin-top:10px;">
+        ⚠ No API key set for the selected provider. Open <b>Settings</b> to add your key before extracting.
+      </div>
+      <div id="extractStatus" style="margin-top:14px;"></div>
+    </div>
+
+    <div class="card" id="reviewCard" style="display:none;">
+      <div class="toolbar">
+        <h3 style="border:none;margin:0;">Extracted Members — Review Before Adding</h3>
+        <div class="spacer"></div>
+        <button class="btn" onclick="reviewSelectAll(true)">Select all</button>
+        <button class="btn" onclick="reviewSelectAll(false)">Select none</button>
+        <button class="btn solid" onclick="commitReviewedMembers()">Add Selected to Project</button>
+      </div>
+      <div class="review-row review-head">
+        <div></div><div>Description</div><div>Section</div><div>Category</div><div>Unit</div><div>Qty (est.)</div><div>Notes / source</div>
+      </div>
+      <div id="reviewBody"></div>
+    </div>
+  </section>
+
+  <!-- ===================== WORKSHOP SCHEDULE ===================== -->
+  <section class="panel" id="panel-workshop">
+    <div class="card">
+      <h3>Workshop Fabrication Schedule</h3>
+      <div id="workshopGantt"></div>
+    </div>
+    <div class="card">
+      <h3>Workshop Progress by Member</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Description</th><th>Section</th><th>Qty</th><th>Start</th><th>End</th><th>Duration (d)</th><th>Status</th><th>Actual Output</th></tr></thead>
+        <tbody id="workshopTableBody"></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- ===================== ONSITE SCHEDULE ===================== -->
+  <section class="panel" id="panel-onsite">
+    <div class="card">
+      <h3>Onsite Erection Schedule</h3>
+      <div id="onsiteGantt"></div>
+    </div>
+    <div class="card">
+      <h3>Onsite Progress by Member</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Description</th><th>Section</th><th>Qty</th><th>Start</th><th>End</th><th>Duration (d)</th><th>Status</th><th>Actual Output</th></tr></thead>
+        <tbody id="onsiteTableBody"></tbody>
+      </table></div>
+    </div>
+  </section>
+
+  <!-- ===================== COMBINED VIEW ===================== -->
+  <section class="panel" id="panel-combined">
+    <div class="card">
+      <h3>Overall Progress</h3>
+      <div class="grid cols-4" id="combinedStats"></div>
+    </div>
+    <div class="card">
+      <h3>Combined Status by Category</h3>
+      <div class="table-wrap"><table>
+        <thead><tr><th>Category</th><th>Members</th><th>Total Qty</th><th>Workshop Status</th><th>Onsite Status</th></tr></thead>
+        <tbody id="combinedTableBody"></tbody>
+      </table></div>
+    </div>
+  </section>
+
+</main>
+
+<!-- ===================== SETTINGS MODAL ===================== -->
+<div class="modal-bg no-print" id="settingsModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('settingsModal')">&times;</button>
+    <h3>Settings</h3>
+    <div class="section-title">Supabase (cloud sync)</div>
+    <div class="field"><label>Project URL</label><input id="cfgSupaUrl"></div>
+    <div class="field" style="margin-top:8px;"><label>Anon Key</label><input id="cfgSupaKey"></div>
+    <div class="hint">Pre-filled with the Ropa Engineering Supabase project. Change only if syncing elsewhere.</div>
+
+    <div class="section-title">Anthropic API Key (for Drawing Import — Claude)</div>
+    <div class="field"><label>API Key</label><input id="cfgAnthropicKey" placeholder="sk-ant-..." type="password"></div>
+    <div class="hint">
+      Stored only in this browser's local storage — never sent anywhere except directly to api.anthropic.com.
+      Get a key at <a href="https://console.anthropic.com/settings/keys" target="_blank">console.anthropic.com</a>.
+    </div>
+
+    <div class="section-title">Google Gemini API Key (for Drawing Import — Gemini, free tier)</div>
+    <div class="field"><label>API Key</label><input id="cfgGeminiKey" placeholder="AIza..." type="password"></div>
+    <div class="hint">
+      Stored only in this browser's local storage — sent directly to generativelanguage.googleapis.com.
+      Get a free key at <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a>.
+      Note: on Google's free tier, inputs/outputs may be used to improve their models — fine for a steel GA drawing,
+      but worth knowing.
+    </div>
+    <div class="hint">
+      Because this is a standalone file (not a claude.ai chat), the drawing-reading feature calls these APIs
+      directly from your browser using your own key(s).
+    </div>
+
+    <div style="margin-top:16px;text-align:right;">
+      <button class="btn solid" onclick="saveSettings()">Save Settings</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===================== PROJECTS MODAL ===================== -->
+<div class="modal-bg no-print" id="projectsModal">
+  <div class="modal">
+    <button class="modal-close" onclick="closeModal('projectsModal')">&times;</button>
+    <h3>Projects</h3>
+    <div style="margin-bottom:12px;">
+      <button class="btn solid" onclick="newProject()">+ New Project</button>
+      <button class="btn" onclick="refreshProjectList()">↻ Refresh from cloud</button>
+    </div>
+    <div id="projectListBody"><div class="hint">Loading…</div></div>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<script>
+/* ============================================================
+   CONFIG
+   ============================================================ */
+const DEFAULT_SUPA_URL = "https://xschfdgrlbgcouqaepsp.supabase.co";
+const DEFAULT_SUPA_KEY = "sb_publishable_4aeaSsBVJU8f_F_0H0GpGg_2-CQU-bC"; // Supabase publishable key
+const LS_KEYS = { supaUrl:"rwp_supa_url", supaKey:"rwp_supa_key", anthropicKey:"rwp_anthropic_key", geminiKey:"rwp_gemini_key" };
+let sb = null;
+
+function getCfg(key, fallback){ return localStorage.getItem(key) || fallback; }
+function initSupabase(){
+  const url = getCfg(LS_KEYS.supaUrl, DEFAULT_SUPA_URL);
+  const key = getCfg(LS_KEYS.supaKey, DEFAULT_SUPA_KEY);
+  if(url && key){
+    try{ sb = window.supabase.createClient(url, key); }catch(e){ sb = null; }
+  } else {
+    sb = null;
+  }
+}
+
+/* ============================================================
+   DATA: categories, units, rate tables (ported from steel.ts)
+   ============================================================ */
+const CATEGORY_OPTIONS = [
+  ["primary_structural","Primary Structural"],
+  ["secondary_members","Secondary Members"],
+  ["roofing_cladding","Roofing & Cladding"],
+  ["gutters_rainwater","Gutters & Rainwater"],
+  ["trusses_special","Trusses & Special"],
+  ["water_tanks","Water Tanks"],
+  ["connections_finishing","Connections & Finishing"],
+  ["railings_access","Railings & Access"],
+  ["miscellaneous","Miscellaneous"],
+];
+const UNIT_OPTIONS = ["No.","m","m²","kg","ton"];
+const COMPLEXITY_OPTIONS = ["simple","standard","complex"];
+const LIFTING_OPTIONS = ["crane","manual","either"];
+
+const ONSITE_RATES = {
+  "Steel Columns (light <100kg)": { outputPerDay:12, manHoursPerUnit:2, crewSize:4, unit:"No." },
+  "Steel Columns (medium 100-300kg)": { outputPerDay:8, manHoursPerUnit:3, crewSize:4, unit:"No." },
+  "Steel Columns (heavy >300kg)": { outputPerDay:5, manHoursPerUnit:4.8, crewSize:5, unit:"No." },
+  "Primary Beams (crane access)": { outputPerDay:10, manHoursPerUnit:2.4, crewSize:4, unit:"No." },
+  "Primary Beams (limited access)": { outputPerDay:6, manHoursPerUnit:4, crewSize:4, unit:"No." },
+  "Purlins (C/Z Section)": { outputPerDay:25, manHoursPerUnit:1, crewSize:3, unit:"No." },
+  "Side Rails (Wall Girts)": { outputPerDay:25, manHoursPerUnit:1, crewSize:3, unit:"No." },
+  "Sag Rods / Tie Rods": { outputPerDay:40, manHoursPerUnit:0.6, crewSize:2, unit:"No." },
+  "Eaves Beams": { outputPerDay:12, manHoursPerUnit:2, crewSize:3, unit:"No." },
+  "Cleats & Brackets": { outputPerDay:30, manHoursPerUnit:0.8, crewSize:2, unit:"No." },
+  "Roofing Sheets (standard)": { outputPerDay:80, manHoursPerUnit:0.6, crewSize:4, unit:"m²" },
+  "Roofing Sheets (insulated)": { outputPerDay:55, manHoursPerUnit:0.9, crewSize:4, unit:"m²" },
+  "Side/Wall Cladding": { outputPerDay:60, manHoursPerUnit:0.8, crewSize:4, unit:"m²" },
+  "Flashings & Trims": { outputPerDay:35, manHoursPerUnit:0.7, crewSize:2, unit:"m" },
+  "Steel Gutters": { outputPerDay:25, manHoursPerUnit:1, crewSize:3, unit:"m" },
+  "Downpipes": { outputPerDay:40, manHoursPerUnit:0.6, crewSize:2, unit:"m" },
+  "Roof Truss Erection": { outputPerDay:4, manHoursPerUnit:8, crewSize:5, unit:"No." },
+  "Bracing Rods": { outputPerDay:25, manHoursPerUnit:1, crewSize:2, unit:"No." },
+  "Bracing Angles": { outputPerDay:20, manHoursPerUnit:1.2, crewSize:3, unit:"No." },
+  "Panel Tank Assembly": { outputPerDay:0.5, manHoursPerUnit:64, crewSize:5, unit:"No." },
+  "Structural Bolting": { outputPerDay:30, manHoursPerUnit:0.5, crewSize:2, unit:"No." },
+  "Touch-up Painting": { outputPerDay:40, manHoursPerUnit:0.6, crewSize:2, unit:"m²" },
+  "Hand Rails": { outputPerDay:20, manHoursPerUnit:1.3, crewSize:3, unit:"m" },
+};
+const WORKSHOP_RATES = {
+  "Columns (3-6m)": { outputPerDay:4, manHoursPerUnit:2, crewSize:2, unit:"No." },
+  "Columns (6-9m)": { outputPerDay:3, manHoursPerUnit:2.7, crewSize:2, unit:"No." },
+  "Primary Beams (UB/UC 310+)": { outputPerDay:4, manHoursPerUnit:2, crewSize:2, unit:"No." },
+  "Secondary Beams (UB/UC <310)": { outputPerDay:5, manHoursPerUnit:1.6, crewSize:2, unit:"No." },
+  "Purlins (C/Z Section)": { outputPerDay:20, manHoursPerUnit:0.4, crewSize:2, unit:"No." },
+  "Side Rails": { outputPerDay:18, manHoursPerUnit:0.44, crewSize:2, unit:"No." },
+  "Eaves Beams": { outputPerDay:10, manHoursPerUnit:0.8, crewSize:2, unit:"No." },
+  "Cleats & Brackets": { outputPerDay:35, manHoursPerUnit:0.23, crewSize:2, unit:"No." },
+  "Fly Braces": { outputPerDay:25, manHoursPerUnit:0.32, crewSize:2, unit:"No." },
+  "Stair Stringers": { outputPerDay:3, manHoursPerUnit:2.7, crewSize:2, unit:"No." },
+  "Stair Treads": { outputPerDay:12, manHoursPerUnit:0.67, crewSize:2, unit:"No." },
+  "Handrails (simple)": { outputPerDay:6, manHoursPerUnit:1.3, crewSize:2, unit:"m" },
+  "Handrails (complex)": { outputPerDay:3, manHoursPerUnit:2.7, crewSize:2, unit:"m" },
+  "Guardrails": { outputPerDay:5, manHoursPerUnit:1.6, crewSize:2, unit:"m" },
+  "Gutters": { outputPerDay:6, manHoursPerUnit:1.3, crewSize:2, unit:"m" },
+  "Downpipes": { outputPerDay:8, manHoursPerUnit:1, crewSize:2, unit:"m" },
+  "Louver Frames": { outputPerDay:6, manHoursPerUnit:1.3, crewSize:2, unit:"No." },
+  "Door/Window Frames": { outputPerDay:3, manHoursPerUnit:2.7, crewSize:2, unit:"No." },
+  "Grating Panels": { outputPerDay:8, manHoursPerUnit:1, crewSize:2, unit:"m²" },
+  "Checker Plate Panels": { outputPerDay:5, manHoursPerUnit:1.6, crewSize:2, unit:"m²" },
+  "Truss Assembly": { outputPerDay:1, manHoursPerUnit:8, crewSize:2, unit:"No." },
+  "Bracing Rods": { outputPerDay:12, manHoursPerUnit:0.67, crewSize:2, unit:"No." },
+  "Bracing Angles": { outputPerDay:15, manHoursPerUnit:0.53, crewSize:2, unit:"No." },
+  "Full Welding": { outputPerDay:12, manHoursPerUnit:0.67, crewSize:2, unit:"m" },
+  "Surface Prep": { outputPerDay:50, manHoursPerUnit:0.16, crewSize:2, unit:"m²" },
+};
+const DESCRIPTION_OPTIONS = [...Object.keys(ONSITE_RATES), ...Object.keys(WORKSHOP_RATES), "Custom"];
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let state = {
+  id: null, // supabase row id (also used as project_id text key)
+  project: {
+    name:"Untitled Project", client:"", projectNumber:"", siteLocation:"",
+    startDate:"", targetDate:"", workingDaysPerWeek:6, dailyWorkingHours:8,
+    craneAvailable:true, craneType:"", maxCraneCapacity:null, workHeight:null,
+    siteAccess:"", weatherRiskFactor:5, complexityFactor:5, contingencyFactor:10,
+  },
+  members: [], // array of member objects
+};
+let nextSortOrder = 1;
+let reviewItems = []; // pending extracted members {selected, description, section, category, unit, notes}
+
+function uid(){ return 'm_'+Math.random().toString(36).slice(2,10)+Date.now().toString(36); }
+
+function blankMember(){
+  return {
+    id: uid(), memberCode:"", description:"", category:"primary_structural", unit:"No.",
+    quantity:1, weight:null, length:null, section:"", complexity:"standard", liftingMethod:"either",
+    workshopStartDate:"", workshopEndDate:"", workshopDuration:null, workshopStatus:"pending", workshopActualOutput:0,
+    onsiteStartDate:"", onsiteEndDate:"", onsiteDuration:null, onsiteStatus:"pending", onsiteActualOutput:0,
+    outputPerDay:null, manHoursPerUnit:null, crewSize:2, dependencies:"", notes:"", sortOrder: nextSortOrder++,
+  };
+}
+
+/* ============================================================
+   SCHEDULE UTILS (ported from schedule-utils.ts)
+   ============================================================ */
+function parseISO(s){ if(!s) return null; const d=new Date(s+'T00:00:00'); return isNaN(d)?null:d; }
+function fmtISO(d){ if(!d) return ""; const y=d.getFullYear(),m=String(d.getMonth()+1).padStart(2,'0'),day=String(d.getDate()).padStart(2,'0'); return `${y}-${m}-${day}`; }
+function displayDate(s){ const d=parseISO(s); if(!d) return "—"; return `${String(d.getDate()).padStart(2,'0')}/${String(d.getMonth()+1).padStart(2,'0')}/${d.getFullYear()}`; }
+function addDays(d,n){ const r=new Date(d); r.setDate(r.getDate()+n); return r; }
+
+function addWorkingDays(startDate, days, wdpw){
+  wdpw = wdpw||6;
+  let current = new Date(startDate);
+  let added = 0;
+  while(added < Math.floor(days)){
+    current = addDays(current,1);
+    if(wdpw===6 && current.getDay()===0) continue;
+    if(wdpw===5 && (current.getDay()===0||current.getDay()===6)) continue;
+    added++;
+  }
+  return current;
+}
+function calculateDuration(qty, outputPerDay, complexity){
+  let factor = 1;
+  if(complexity==="complex") factor = 1.3;
+  if(complexity==="simple") factor = 0.9;
+  const days = qty/((outputPerDay||1)*factor);
+  return Math.max(0.5, Math.round(days*100)/100);
+}
+function findRateForDescription(description, type){
+  const rates = type==="onsite" ? ONSITE_RATES : WORKSHOP_RATES;
+  if(rates[description]) return rates[description];
+  const descLower = (description||"").toLowerCase();
+  for(const [key,value] of Object.entries(rates)){
+    const keyLower = key.toLowerCase();
+    if(descLower.includes(keyLower) || keyLower.includes(descLower)) return value;
+  }
+  return null;
+}
+function autoCalculateDates(members, projectStartDate, wdpw, type){
+  if(!projectStartDate || members.length===0) return members;
+  let currentDate = parseISO(projectStartDate);
+  if(!currentDate) return members;
+  const sorted = [...members].sort((a,b)=>a.sortOrder-b.sortOrder);
+  for(const member of sorted){
+    const rate = findRateForDescription(member.description, type);
+    const outputPerDay = member.outputPerDay || (rate && rate.outputPerDay) || 10;
+    const manHoursPerUnit = member.manHoursPerUnit || (rate && rate.manHoursPerUnit) || 1;
+    const crewSize = member.crewSize || (rate && rate.crewSize) || 2;
+    const duration = calculateDuration(member.quantity, outputPerDay, member.complexity);
+    const endDate = addWorkingDays(currentDate, duration, wdpw);
+    if(type==="workshop"){
+      member.workshopStartDate = fmtISO(currentDate);
+      member.workshopEndDate = fmtISO(endDate);
+      member.workshopDuration = duration;
+    } else {
+      member.onsiteStartDate = fmtISO(currentDate);
+      member.onsiteEndDate = fmtISO(endDate);
+      member.onsiteDuration = duration;
+    }
+    member.outputPerDay = outputPerDay;
+    member.manHoursPerUnit = manHoursPerUnit;
+    member.crewSize = crewSize;
+    currentDate = addDays(endDate,1);
+    while((wdpw===6 && currentDate.getDay()===0) || (wdpw===5 && (currentDate.getDay()===0||currentDate.getDay()===6))){
+      currentDate = addDays(currentDate,1);
+    }
+  }
+  return members;
+}
+function statusColor(status){
+  switch(status){
+    case "completed": return "var(--green)";
+    case "in_progress": return "var(--blue)";
+    case "on_target": return "var(--green)";
+    case "behind": return "var(--red)";
+    case "on_hold": return "var(--amber)";
+    default: return "var(--slate)";
+  }
+}
+
+/* ============================================================
+   RENDER: header stats
+   ============================================================ */
+function renderHeader(){
+  document.getElementById('hdrProjectName').textContent = state.project.name || "Untitled Project";
+  const m = state.members;
+  document.getElementById('statMembers').textContent = m.length;
+  document.getElementById('statQty').textContent = m.reduce((s,x)=>s+(Number(x.quantity)||0),0);
+  document.getElementById('statWorkshopDays').textContent = m.reduce((s,x)=>s+(Number(x.workshopDuration)||0),0).toFixed(1);
+  document.getElementById('statOnsiteDays').textContent = m.reduce((s,x)=>s+(Number(x.onsiteDuration)||0),0).toFixed(1);
+  const totalTarget = m.reduce((s,x)=>s+(Number(x.quantity)||0),0)*2; // workshop+onsite each count qty
+  const totalActual = m.reduce((s,x)=>s+(Number(x.workshopActualOutput)||0)+(Number(x.onsiteActualOutput)||0),0);
+  const pct = totalTarget>0 ? Math.round((totalActual/totalTarget)*100) : 0;
+  document.getElementById('statProgress').textContent = pct+"%";
+}
+
+/* ============================================================
+   RENDER: setup tab
+   ============================================================ */
+function renderSetup(){
+  const p = state.project;
+  for(const key of Object.keys(p)){
+    const el = document.getElementById('p_'+key);
+    if(!el) continue;
+    if(el.type==="checkbox") el.checked = !!p[key];
+    else el.value = p[key]===null||p[key]===undefined ? "" : p[key];
+  }
+  document.getElementById('p_craneAvailable').value = p.craneAvailable ? "true":"false";
+}
+function onProjectField(key,val){ state.project[key]=val; renderHeader(); }
+
+/* ============================================================
+   RENDER: members tab
+   ============================================================ */
+function renderMembers(){
+  const body = document.getElementById('membersBody');
+  const empty = document.getElementById('membersEmpty');
+  body.innerHTML = "";
+  if(state.members.length===0){ empty.style.display='block'; return; } else { empty.style.display='none'; }
+  const sorted = [...state.members].sort((a,b)=>a.sortOrder-b.sortOrder);
+  for(const mem of sorted){
+    const tr = document.createElement('tr');
+    tr.innerHTML = `
+      <td class="mono" style="color:var(--muted2);">${mem.sortOrder}</td>
+      <td><input value="${esc(mem.memberCode)}" oninput="updMember('${mem.id}','memberCode',this.value)" style="width:70px;"></td>
+      <td>
+        <input list="descOptions" value="${esc(mem.description)}" oninput="updMember('${mem.id}','description',this.value)" style="min-width:160px;">
+      </td>
+      <td>
+        <select onchange="updMember('${mem.id}','category',this.value)">
+          ${CATEGORY_OPTIONS.map(([v,l])=>`<option value="${v}" ${mem.category===v?'selected':''}>${l}</option>`).join('')}
+        </select>
+      </td>
+      <td><input value="${esc(mem.section)}" oninput="updMember('${mem.id}','section',this.value)" style="width:120px;" placeholder="e.g. SHS75x75x3"></td>
+      <td><select onchange="updMember('${mem.id}','unit',this.value)">${UNIT_OPTIONS.map(u=>`<option ${mem.unit===u?'selected':''}>${u}</option>`).join('')}</select></td>
+      <td><input type="number" value="${mem.quantity}" oninput="updMember('${mem.id}','quantity',Number(this.value))" style="width:60px;"></td>
+      <td><input type="number" value="${mem.weight??''}" oninput="updMember('${mem.id}','weight',Number(this.value))" style="width:75px;"></td>
+      <td><input type="number" value="${mem.length??''}" oninput="updMember('${mem.id}','length',Number(this.value))" style="width:70px;"></td>
+      <td><select onchange="updMember('${mem.id}','complexity',this.value)">${COMPLEXITY_OPTIONS.map(c=>`<option ${mem.complexity===c?'selected':''}>${c}</option>`).join('')}</select></td>
+      <td><select onchange="updMember('${mem.id}','liftingMethod',this.value)">${LIFTING_OPTIONS.map(c=>`<option ${mem.liftingMethod===c?'selected':''}>${c}</option>`).join('')}</select></td>
+      <td><input type="number" value="${mem.outputPerDay??''}" oninput="updMember('${mem.id}','outputPerDay',Number(this.value))" style="width:60px;"></td>
+      <td><input type="number" value="${mem.crewSize}" oninput="updMember('${mem.id}','crewSize',Number(this.value))" style="width:50px;"></td>
+      <td><button class="icon-btn" onclick="deleteMember('${mem.id}')">✕</button></td>
+    `;
+    body.appendChild(tr);
+  }
+  if(!document.getElementById('descOptions')){
+    const dl = document.createElement('datalist'); dl.id='descOptions';
+    dl.innerHTML = DESCRIPTION_OPTIONS.map(d=>`<option value="${esc(d)}">`).join('');
+    document.body.appendChild(dl);
+  }
+}
+function esc(s){ return (s===null||s===undefined?"":String(s)).replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
+function updMember(id, key, val){
+  const mem = state.members.find(m=>m.id===id);
+  if(!mem) return;
+  mem[key]=val;
+  if(key==='description'){
+    const wRate = findRateForDescription(val,'workshop');
+    const oRate = findRateForDescription(val,'onsite');
+    if(!mem.outputPerDay && (wRate||oRate)) mem.outputPerDay = (oRate||wRate).outputPerDay;
+  }
+  renderHeader();
+  renderWorkshop(); renderOnsite(); renderCombined();
+}
+function addMemberRow(){
+  state.members.push(blankMember());
+  renderMembers(); renderHeader();
+}
+function deleteMember(id){
+  if(!confirm('Remove this member?')) return;
+  state.members = state.members.filter(m=>m.id!==id);
+  renderMembers(); renderHeader(); renderWorkshop(); renderOnsite(); renderCombined();
+}
+function autoCalcDates(type){
+  if(!state.project.startDate){ toast('Set a project Start Date in Project Setup first.'); return; }
+  autoCalculateDates(state.members, state.project.startDate, state.project.workingDaysPerWeek, type);
+  renderMembers(); renderHeader();
+  if(type==='workshop') renderWorkshop(); else renderOnsite();
+  renderCombined();
+  toast(`${type==='workshop'?'Workshop':'Onsite'} schedule calculated.`);
+}
+
+/* ============================================================
+   RENDER: workshop / onsite gantt + tables
+   ============================================================ */
+function renderScheduleTab(type){
+  const ganttEl = document.getElementById(type==='workshop'?'workshopGantt':'onsiteGantt');
+  const tbodyEl = document.getElementById(type==='workshop'?'workshopTableBody':'onsiteTableBody');
+  const startKey = type+'StartDate', endKey = type+'EndDate', durKey = type+'Duration', statusKey = type+'Status', actualKey = type+'ActualOutput';
+
+  const scheduled = state.members.filter(m=>m[startKey] && m[endKey]);
+  if(scheduled.length===0){
+    ganttEl.innerHTML = `<div class="empty"><div class="big">📅</div>No ${type} dates yet. Go to Members and click "Auto-schedule ${type==='workshop'?'Workshop':'Onsite'}".</div>`;
+    tbodyEl.innerHTML = "";
+    return;
+  }
+  const allStart = scheduled.map(m=>parseISO(m[startKey]));
+  const allEnd = scheduled.map(m=>parseISO(m[endKey]));
+  const minD = new Date(Math.min(...allStart));
+  const maxD = new Date(Math.max(...allEnd));
+  const totalSpan = Math.max(1,(maxD-minD)/86400000);
+
+  let ganttHtml = `<div class="week-header"><div class="gantt-label"></div><div style="flex:1;display:flex;justify-content:space-between;"><span>${displayDate(fmtISO(minD))}</span><span>${displayDate(fmtISO(maxD))}</span></div></div>`;
+  const sorted = [...scheduled].sort((a,b)=>parseISO(a[startKey])-parseISO(b[startKey]));
+  for(const m of sorted){
+    const s = parseISO(m[startKey]), e = parseISO(m[endKey]);
+    const left = ((s-minD)/86400000)/totalSpan*100;
+    const width = Math.max(1.5, ((e-s)/86400000)/totalSpan*100);
+    ganttHtml += `<div class="gantt-row">
+      <div class="gantt-label" title="${esc(m.description)}">${esc(m.description||'(untitled)')}</div>
+      <div class="gantt-track"><div class="gantt-bar" style="left:${left}%;width:${width}%;background:${statusColor(m[statusKey])};" title="${displayDate(m[startKey])} – ${displayDate(m[endKey])}">${m[durKey]?m[durKey]+'d':''}</div></div>
+    </div>`;
+  }
+  ganttEl.innerHTML = ganttHtml;
+
+  tbodyEl.innerHTML = sorted.map(m=>`
+    <tr>
+      <td>${esc(m.description)}</td><td class="mono">${esc(m.section)}</td><td>${m.quantity} ${esc(m.unit)}</td>
+      <td>${displayDate(m[startKey])}</td><td>${displayDate(m[endKey])}</td><td>${m[durKey]??'—'}</td>
+      <td><span class="badge ${m[statusKey]}">${m[statusKey].replace('_',' ')}</span></td>
+      <td><input type="number" value="${m[actualKey]||0}" style="width:70px;" oninput="updMember('${m.id}','${actualKey}',Number(this.value))"></td>
+    </tr>`).join('');
+}
+function renderWorkshop(){ renderScheduleTab('workshop'); }
+function renderOnsite(){ renderScheduleTab('onsite'); }
+
+/* ============================================================
+   RENDER: combined view
+   ============================================================ */
+function renderCombined(){
+  const m = state.members;
+  const totalQty = m.reduce((s,x)=>s+(Number(x.quantity)||0),0);
+  const wDone = m.filter(x=>x.workshopStatus==='completed').length;
+  const oDone = m.filter(x=>x.onsiteStatus==='completed').length;
+  const wActual = m.reduce((s,x)=>s+(Number(x.workshopActualOutput)||0),0);
+  const oActual = m.reduce((s,x)=>s+(Number(x.onsiteActualOutput)||0),0);
+  const wPct = totalQty? Math.round(wActual/totalQty*100):0;
+  const oPct = totalQty? Math.round(oActual/totalQty*100):0;
+
+  document.getElementById('combinedStats').innerHTML = `
+    <div class="card" style="margin:0;">
+      <div class="section-title">Workshop Progress</div>
+      <div style="font-size:22px;font-weight:700;">${wPct}%</div>
+      <div class="progress-outer"><div class="progress-inner" style="width:${Math.min(100,wPct)}%;"></div></div>
+      <div class="hint">${wDone}/${m.length} members completed</div>
+    </div>
+    <div class="card" style="margin:0;">
+      <div class="section-title">Onsite Progress</div>
+      <div style="font-size:22px;font-weight:700;">${oPct}%</div>
+      <div class="progress-outer"><div class="progress-inner" style="width:${Math.min(100,oPct)}%;"></div></div>
+      <div class="hint">${oDone}/${m.length} members completed</div>
+    </div>
+    <div class="card" style="margin:0;">
+      <div class="section-title">Total Quantity</div>
+      <div style="font-size:22px;font-weight:700;">${totalQty}</div>
+      <div class="hint">across ${m.length} member types</div>
+    </div>
+    <div class="card" style="margin:0;">
+      <div class="section-title">Behind Schedule</div>
+      <div style="font-size:22px;font-weight:700;color:var(--red);">${m.filter(x=>x.workshopStatus==='behind'||x.onsiteStatus==='behind').length}</div>
+      <div class="hint">members flagged behind</div>
+    </div>`;
+
+  const byCat = {};
+  for(const mem of m){
+    if(!byCat[mem.category]) byCat[mem.category]={count:0,qty:0,wStatuses:[],oStatuses:[]};
+    byCat[mem.category].count++;
+    byCat[mem.category].qty += Number(mem.quantity)||0;
+    byCat[mem.category].wStatuses.push(mem.workshopStatus);
+    byCat[mem.category].oStatuses.push(mem.onsiteStatus);
+  }
+  const dominant = arr => {
+    if(arr.every(s=>s==='completed')) return 'completed';
+    if(arr.some(s=>s==='behind')) return 'behind';
+    if(arr.some(s=>s==='in_progress')) return 'in_progress';
+    return 'pending';
+  };
+  document.getElementById('combinedTableBody').innerHTML = Object.entries(byCat).map(([cat,data])=>{
+    const label = (CATEGORY_OPTIONS.find(c=>c[0]===cat)||[cat,cat])[1];
+    return `<tr><td>${label}</td><td>${data.count}</td><td>${data.qty}</td>
+      <td><span class="badge ${dominant(data.wStatuses)}">${dominant(data.wStatuses).replace('_',' ')}</span></td>
+      <td><span class="badge ${dominant(data.oStatuses)}">${dominant(data.oStatuses).replace('_',' ')}</span></td></tr>`;
+  }).join('') || `<tr><td colspan="5" class="hint">No members yet.</td></tr>`;
+}
+
+/* ============================================================
+   TABS
+   ============================================================ */
+function switchTab(tab){
+  document.querySelectorAll('.tab-btn').forEach(b=>b.classList.toggle('active', b.dataset.tab===tab));
+  document.querySelectorAll('.panel').forEach(p=>p.classList.toggle('active', p.id==='panel-'+tab));
+  if(tab==='workshop') renderWorkshop();
+  if(tab==='onsite') renderOnsite();
+  if(tab==='combined') renderCombined();
+  if(tab==='drawing') checkApiKeyWarning();
+}
+
+/* ============================================================
+   MODALS
+   ============================================================ */
+function closeModal(id){ document.getElementById(id).classList.remove('show'); }
+function openSettingsModal(){
+  document.getElementById('cfgSupaUrl').value = getCfg(LS_KEYS.supaUrl, DEFAULT_SUPA_URL);
+  document.getElementById('cfgSupaKey').value = getCfg(LS_KEYS.supaKey, DEFAULT_SUPA_KEY);
+  document.getElementById('cfgAnthropicKey').value = getCfg(LS_KEYS.anthropicKey, "");
+  document.getElementById('cfgGeminiKey').value = getCfg(LS_KEYS.geminiKey, "");
+  document.getElementById('settingsModal').classList.add('show');
+}
+function saveSettings(){
+  localStorage.setItem(LS_KEYS.supaUrl, document.getElementById('cfgSupaUrl').value.trim());
+  localStorage.setItem(LS_KEYS.supaKey, document.getElementById('cfgSupaKey').value.trim());
+  localStorage.setItem(LS_KEYS.anthropicKey, document.getElementById('cfgAnthropicKey').value.trim());
+  localStorage.setItem(LS_KEYS.geminiKey, document.getElementById('cfgGeminiKey').value.trim());
+  initSupabase();
+  closeModal('settingsModal');
+  checkApiKeyWarning();
+  toast('Settings saved.');
+}
+function openProjectsModal(){
+  document.getElementById('projectsModal').classList.add('show');
+  refreshProjectList();
+}
+function newProject(){
+  if(!confirm('Start a new blank project? Unsaved changes to the current one will be lost unless already synced.')) return;
+  state = { id:null, project: blankProjectDefaults(), members: [] };
+  nextSortOrder = 1;
+  renderAll();
+  closeModal('projectsModal');
+  toast('New project started.');
+}
+function blankProjectDefaults(){
+  return { name:"Untitled Project", client:"", projectNumber:"", siteLocation:"",
+    startDate:"", targetDate:"", workingDaysPerWeek:6, dailyWorkingHours:8,
+    craneAvailable:true, craneType:"", maxCraneCapacity:null, workHeight:null,
+    siteAccess:"", weatherRiskFactor:5, complexityFactor:5, contingencyFactor:10 };
+}
+
+/* ============================================================
+   SUPABASE SYNC
+   Table: ropa_workshop_projects (id text primary key, name text, data jsonb, updated_at timestamptz)
+   ============================================================ */
+async function saveProject(){
+  if(!sb){ toast('Supabase not configured — open Settings.'); return; }
+  if(!state.id) state.id = 'proj_'+Date.now().toString(36)+Math.random().toString(36).slice(2,7);
+  document.getElementById('hdrSyncState').textContent = 'saving…';
+  const payload = { id: state.id, name: state.project.name||'Untitled Project', data: { project: state.project, members: state.members }, updated_at: new Date().toISOString() };
+  const { error } = await sb.from('ropa_workshop_projects').upsert(payload);
+  if(error){ document.getElementById('hdrSyncState').textContent = 'sync error'; toast('Save failed: '+error.message); console.error(error); return; }
+  document.getElementById('hdrSyncState').textContent = 'synced ✓';
+  toast('Project saved to cloud.');
+}
+async function refreshProjectList(){
+  const body = document.getElementById('projectListBody');
+  if(!sb){ body.innerHTML = `<div class="hint">Supabase not configured. Open Settings to add your project URL and anon key.</div>`; return; }
+  body.innerHTML = `<div class="hint"><span class="spin"></span>Loading…</div>`;
+  const { data, error } = await sb.from('ropa_workshop_projects').select('id,name,updated_at').order('updated_at',{ascending:false});
+  if(error){ body.innerHTML = `<div class="hint">Error loading: ${esc(error.message)}</div>`; return; }
+  if(!data || data.length===0){ body.innerHTML = `<div class="hint">No saved projects yet.</div>`; return; }
+  body.innerHTML = data.map(p=>`
+    <div style="display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line);">
+      <div style="flex:1;">
+        <div style="font-weight:600;">${esc(p.name)}</div>
+        <div class="hint">updated ${new Date(p.updated_at).toLocaleString()}</div>
+      </div>
+      <button class="btn small" onclick="loadProject('${p.id}')">Open</button>
+      <button class="btn small danger" onclick="deleteProjectCloud('${p.id}')">Delete</button>
+    </div>`).join('');
+}
+async function loadProject(id){
+  const { data, error } = await sb.from('ropa_workshop_projects').select('*').eq('id',id).single();
+  if(error){ toast('Load failed: '+error.message); return; }
+  state = { id: data.id, project: { ...blankProjectDefaults(), ...data.data.project }, members: data.data.members||[] };
+  nextSortOrder = Math.max(1, ...state.members.map(m=>m.sortOrder||0)) + 1;
+  document.getElementById('hdrSyncState').textContent = 'synced ✓';
+  renderAll();
+  closeModal('projectsModal');
+  toast('Project loaded.');
+}
+async function deleteProjectCloud(id){
+  if(!confirm('Delete this project from the cloud? This cannot be undone.')) return;
+  const { error } = await sb.from('ropa_workshop_projects').delete().eq('id',id);
+  if(error){ toast('Delete failed: '+error.message); return; }
+  refreshProjectList();
+}
+
+/* ============================================================
+   EXPORT
+   ============================================================ */
+function exportExcel(){
+  const wb = XLSX.utils.book_new();
+  const p = state.project;
+  const rows = [
+    ["PROJECT INFORMATION"],
+    ["Project Name:", p.name], ["Client:", p.client||""], ["Project Number:", p.projectNumber||""],
+    ["Site Location:", p.siteLocation||""], ["Start Date:", displayDate(p.startDate)], ["Target Date:", displayDate(p.targetDate)],
+    ["Working Days/Week:", p.workingDaysPerWeek], ["Daily Working Hours:", p.dailyWorkingHours],
+    ["Crane Available:", p.craneAvailable?"Yes":"No"], [""],
+    ["STEEL MEMBERS"],
+    ["Member Code","Description","Category","Unit","Quantity","Weight","Length","Section","Complexity","Lifting Method",
+     "Output/Day","Man-Hrs/Unit","Crew Size","Workshop Start","Workshop End","Workshop Duration","Workshop Status",
+     "Onsite Start","Onsite End","Onsite Duration","Onsite Status","Notes"],
+  ];
+  for(const m of state.members){
+    rows.push([m.memberCode, m.description, m.category, m.unit, m.quantity, m.weight||"", m.length||"", m.section||"",
+      m.complexity, m.liftingMethod, m.outputPerDay||"", m.manHoursPerUnit||"", m.crewSize,
+      displayDate(m.workshopStartDate), displayDate(m.workshopEndDate), m.workshopDuration||"", m.workshopStatus,
+      displayDate(m.onsiteStartDate), displayDate(m.onsiteEndDate), m.onsiteDuration||"", m.onsiteStatus, m.notes||""]);
+  }
+  const ws = XLSX.utils.aoa_to_sheet(rows);
+  ws['!cols'] = new Array(22).fill({wch:14});
+  XLSX.utils.book_append_sheet(wb, ws, "Workshop Planner");
+  XLSX.writeFile(wb, `${(p.name||'project').replace(/[^a-z0-9]/gi,'_')}_workshop_planner.xlsx`);
+}
+
+/* ============================================================
+   DRAWING IMPORT — AI extraction
+   ============================================================ */
+function activeProvider(){ return document.getElementById('aiProvider').value; }
+function checkApiKeyWarning(){
+  const provider = activeProvider();
+  const has = provider==='gemini' ? !!getCfg(LS_KEYS.geminiKey,"") : !!getCfg(LS_KEYS.anthropicKey,"");
+  document.getElementById('apiKeyWarning').style.display = has ? 'none' : 'block';
+}
+const dz = document.getElementById('dropzone');
+dz.addEventListener('dragover', e=>{ e.preventDefault(); dz.classList.add('drag'); });
+dz.addEventListener('dragleave', ()=>dz.classList.remove('drag'));
+dz.addEventListener('drop', e=>{
+  e.preventDefault(); dz.classList.remove('drag');
+  if(e.dataTransfer.files.length) processFile(e.dataTransfer.files[0]);
+});
+function handleFileSelect(e){ if(e.target.files.length) processFile(e.target.files[0]); }
+
+// Provider-agnostic image representation: { mediaType, data (base64, no prefix) }
+async function processFile(file){
+  const provider = activeProvider();
+  const key = provider==='gemini' ? getCfg(LS_KEYS.geminiKey,"") : getCfg(LS_KEYS.anthropicKey,"");
+  if(!key){ toast(`Add your ${provider==='gemini'?'Gemini':'Anthropic'} API key in Settings first.`); openSettingsModal(); return; }
+  const statusEl = document.getElementById('extractStatus');
+  statusEl.innerHTML = `<div class="hint"><span class="spin"></span>Reading drawing…</div>`;
+  try{
+    let images = [];
+    if(file.type === 'application/pdf'){
+      statusEl.innerHTML = `<div class="hint"><span class="spin"></span>Rendering PDF pages…</div>`;
+      images = await pdfToImages(file, 6);
+    } else {
+      const b64 = await fileToBase64(file);
+      images = [{ mediaType:file.type, data:b64 }];
+    }
+    const providerLabel = provider==='gemini' ? 'Gemini' : 'Claude';
+    statusEl.innerHTML = `<div class="hint"><span class="spin"></span>Asking ${providerLabel} to read member callouts (${images.length} page image(s))…</div>`;
+    const members = provider==='gemini'
+      ? await extractMembersWithGemini(images, key)
+      : await extractMembersWithClaude(images, key);
+    statusEl.innerHTML = `<div class="hint">Extracted ${members.length} member type(s) via ${providerLabel}. Review below before adding.</div>`;
+    reviewItems = members.map(m=>({ selected:true, description:m.description||"", section:m.section||"", category:m.category||"miscellaneous", unit:m.unit||"No.", quantity:Number(m.quantity)||1, notes:m.notes||"" }));
+    renderReview();
+  }catch(err){
+    console.error(err);
+    statusEl.innerHTML = `<div class="hint" style="color:var(--red);">Extraction failed: ${esc(err.message||String(err))}</div>`;
+  }
+}
+function fileToBase64(file){
+  return new Promise((resolve,reject)=>{
+    const r = new FileReader();
+    r.onload = ()=>resolve(r.result.split(',')[1]);
+    r.onerror = reject;
+    r.readAsDataURL(file);
+  });
+}
+async function pdfToImages(file, maxPages){
+  pdfjsLib.GlobalWorkerOptions.workerSrc = 'https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js';
+  const buf = await file.arrayBuffer();
+  const pdf = await pdfjsLib.getDocument({data:buf}).promise;
+  const pages = Math.min(pdf.numPages, maxPages);
+  const images = [];
+  for(let i=1;i<=pages;i++){
+    const page = await pdf.getPage(i);
+    const viewport = page.getViewport({scale:2.0});
+    const canvas = document.createElement('canvas');
+    canvas.width = viewport.width; canvas.height = viewport.height;
+    await page.render({ canvasContext: canvas.getContext('2d'), viewport }).promise;
+    const dataUrl = canvas.toDataURL('image/png');
+    images.push({ mediaType:"image/png", data: dataUrl.split(',')[1] });
+  }
+  return images;
+}
+
+const MEMBER_EXTRACTION_SYSTEM_PROMPT = `You read structural steel general-arrangement / erection drawings (often exported from Tekla Structures) for a fabrication company in Kenya. Identify every distinct steel MEMBER TYPE labelled on the drawing (callouts like "TRUSS SHS75*75*3.0", "PURLIN CFLZ150*50*20*2.0", "ROOF BRACING L50*50*6", "EDGE PURLIN RHS150*50*3.0", "SAG ROD ROD12", "GLASS FRAME SHS50*50*3.0", "GUTTER", "ANCHOR ROD", etc).
+Return ONLY minified JSON, no markdown, no commentary, in this exact shape:
+{"members":[{"description":"short name e.g. Truss","section":"the section callout e.g. SHS75x75x3.0","category":"one of primary_structural|secondary_members|roofing_cladding|gutters_rainwater|trusses_special|water_tanks|connections_finishing|railings_access|miscellaneous","unit":"one of No.|m|m²|kg|ton","quantity":1,"notes":"brief note, e.g. which grid/drawing it came from, and whether quantity should be verified"}]}
+Rules:
+- One entry per distinct member type + section combination (do not repeat duplicates from multiple views of the same drawing).
+- For "quantity": actually try to count it from the drawing rather than defaulting to 1. Count repeating items directly if they are individually visible (e.g. number of purlins drawn along a roof slope, number of trusses shown in a plan/elevation, number of grid intersections carrying a given column, number of bracing members shown). Where the count can be derived from grid/frame spacing (e.g. "N trusses at these grid lines" or a row of evenly-spaced purlin callouts), use that derivation and say so in notes. If you truly cannot estimate a reasonable count from what is visible, use 1 and say "count not visible, verify" in notes.
+- Always mark estimated quantities in "notes" as an estimate to verify against the full drawing set / MTO — never state them as certain.
+- Do not invent weights or lengths — leave that to the user.
+- Prefer the clearest/most complete label if the same member appears in multiple views.
+- Categorize sensibly: trusses -> trusses_special, purlins/girts/sag rods/bracing -> secondary_members, columns/beams/RC frame -> primary_structural, roofing/cladding/glass panels -> roofing_cladding, gutters/downpipes -> gutters_rainwater, gusset/connection/base plates/bolts -> connections_finishing, handrails/stairs -> railings_access, anything else -> miscellaneous.`;
+
+function cleanJsonText(text){
+  return text.trim().replace(/^```json/i,'').replace(/^```/,'').replace(/```$/,'').trim();
+}
+
+async function extractMembersWithClaude(images, apiKey){
+  const imageBlocks = images.map(img=>({ type:"image", source:{ type:"base64", media_type:img.mediaType, data:img.data } }));
+  const res = await fetch("https://api.anthropic.com/v1/messages", {
+    method:"POST",
+    headers:{ "content-type":"application/json", "x-api-key": apiKey, "anthropic-version":"2023-06-01", "anthropic-dangerous-direct-browser-access":"true" },
+    body: JSON.stringify({
+      model: "claude-sonnet-4-6",
+      max_tokens: 4000,
+      system: MEMBER_EXTRACTION_SYSTEM_PROMPT,
+      messages: [{ role:"user", content: [...imageBlocks, { type:"text", text:"Extract the member schedule as JSON per the rules above." }] }],
+    }),
+  });
+  if(!res.ok){
+    const t = await res.text();
+    throw new Error(`Claude API error ${res.status}: ${t.slice(0,300)}`);
+  }
+  const data = await res.json();
+  const textBlock = (data.content||[]).find(b=>b.type==='text');
+  if(!textBlock) throw new Error("No text in Claude response");
+  const parsed = JSON.parse(cleanJsonText(textBlock.text));
+  return parsed.members || [];
+}
+
+async function extractMembersWithGemini(images, apiKey){
+  const imageParts = images.map(img=>({ inline_data:{ mime_type:img.mediaType, data:img.data } }));
+  const model = "gemini-2.5-flash";
+  const res = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(apiKey)}`, {
+    method:"POST",
+    headers:{ "content-type":"application/json" },
+    body: JSON.stringify({
+      contents: [{ parts: [ { text: MEMBER_EXTRACTION_SYSTEM_PROMPT + "\n\nExtract the member schedule as JSON per the rules above." }, ...imageParts ] }],
+      generationConfig: { responseMimeType: "application/json", temperature: 0.2 },
+    }),
+  });
+  if(!res.ok){
+    const t = await res.text();
+    throw new Error(`Gemini API error ${res.status}: ${t.slice(0,300)}`);
+  }
+  const data = await res.json();
+  const cand = (data.candidates||[])[0];
+  const part = cand && cand.content && cand.content.parts && cand.content.parts.find(p=>p.text);
+  if(!part) throw new Error("No text in Gemini response");
+  const parsed = JSON.parse(cleanJsonText(part.text));
+  return parsed.members || [];
+}
+
+function renderReview(){
+  document.getElementById('reviewCard').style.display = reviewItems.length ? 'block' : 'none';
+  document.getElementById('reviewBody').innerHTML = reviewItems.map((it,i)=>`
+    <div class="review-row">
+      <input type="checkbox" ${it.selected?'checked':''} onchange="reviewItems[${i}].selected=this.checked">
+      <input value="${esc(it.description)}" oninput="reviewItems[${i}].description=this.value">
+      <input value="${esc(it.section)}" oninput="reviewItems[${i}].section=this.value">
+      <select onchange="reviewItems[${i}].category=this.value">${CATEGORY_OPTIONS.map(([v,l])=>`<option value="${v}" ${it.category===v?'selected':''}>${l}</option>`).join('')}</select>
+      <select onchange="reviewItems[${i}].unit=this.value">${UNIT_OPTIONS.map(u=>`<option ${it.unit===u?'selected':''}>${u}</option>`).join('')}</select>
+      <input type="number" min="0" value="${it.quantity}" oninput="reviewItems[${i}].quantity=Number(this.value)" style="width:55px;">
+      <input value="${esc(it.notes)}" oninput="reviewItems[${i}].notes=this.value">
+    </div>`).join('');
+}
+function reviewSelectAll(val){ reviewItems.forEach(it=>it.selected=val); renderReview(); }
+function commitReviewedMembers(){
+  const chosen = reviewItems.filter(it=>it.selected);
+  if(chosen.length===0){ toast('Nothing selected.'); return; }
+  for(const it of chosen){
+    const mem = blankMember();
+    mem.description = it.description; mem.section = it.section; mem.category = it.category;
+    mem.unit = it.unit; mem.notes = it.notes; mem.quantity = Number(it.quantity)>0 ? Number(it.quantity) : 1;
+    state.members.push(mem);
+  }
+  reviewItems = [];
+  renderReview();
+  document.getElementById('extractStatus').innerHTML = '';
+  renderMembers(); renderHeader();
+  toast(`Added ${chosen.length} member(s) to the project. Quantities are AI estimates — verify against the drawing/MTO, then use Auto-schedule.`);
+  switchTab('members');
+  document.querySelector('.tab-btn[data-tab="members"]').classList.add('active');
+  document.querySelector('.tab-btn[data-tab="drawing"]').classList.remove('active');
+}
+
+/* ============================================================
+   MISC
+   ============================================================ */
+function toast(msg){
+  const t = document.getElementById('toast');
+  t.textContent = msg; t.classList.add('show');
+  clearTimeout(window._toastTimer);
+  window._toastTimer = setTimeout(()=>t.classList.remove('show'), 3200);
+}
+function renderAll(){
+  renderHeader(); renderSetup(); renderMembers(); renderWorkshop(); renderOnsite(); renderCombined(); checkApiKeyWarning();
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+initSupabase();
+renderAll();
+</script>
+</body>
+</html>
