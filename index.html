@@ -116,6 +116,9 @@ td input,td select{padding:4px 6px;font-size:12px;background:#161616;}
 .icon-btn:hover{color:var(--red);}
 
 .hint{font-size:11px;color:var(--muted2);margin-top:4px;}
+.print-opt{display:flex;align-items:center;gap:8px;margin-bottom:8px;cursor:pointer;font-size:12.5px;color:var(--muted);}
+.print-opt input{width:auto;}
+.print-opt span{text-transform:none;letter-spacing:normal;}
 .section-title{font-size:11px;color:var(--muted);text-transform:uppercase;letter-spacing:.5px;margin:14px 0 8px;}
 .pill{display:inline-block;background:#1a1a1a;border:1px solid var(--line2);border-radius:12px;padding:2px 10px;font-size:11px;margin-right:6px;}
 .spin{display:inline-block;width:14px;height:14px;border:2px solid var(--line2);border-top-color:var(--gold);border-radius:50%;animation:spin .7s linear infinite;vertical-align:middle;margin-right:6px;}
@@ -123,20 +126,6 @@ td input,td select{padding:4px 6px;font-size:12px;background:#161616;}
 
 @media print{
   .no-print{display:none !important;}
-  :root{
-    --bg:#ffffff; --panel:#ffffff; --panel2:#ffffff; --line:#ccc; --line2:#bbb;
-    --gold:#16202f; --gold-bright:#000; --gold-dim:rgba(0,0,0,.05);
-    --text:#111; --muted:#444; --muted2:#666;
-    --green:#1a7a34; --blue:#1a56b0; --red:#b3261e; --amber:#8a5a00; --slate:#444;
-  }
-  body{background:#fff;color:#000;}
-  .card,.table-wrap{border-color:#999;}
-  th{background:#eee;color:#000;}
-  td{color:#000;}
-  .gantt-track,.progress-outer{background:#eee;}
-  .panel{display:none;}
-  .panel.print-active{display:block;}
-  .signoff{page-break-inside:avoid;}
 }
 </style>
 </head>
@@ -160,7 +149,9 @@ td input,td select{padding:4px 6px;font-size:12px;background:#161616;}
   <div class="stat"><div class="v" id="statQty">0</div><div class="l">Total Qty</div></div>
   <div class="stat"><div class="v" id="statWorkshopDays">0</div><div class="l">Workshop Days</div></div>
   <div class="stat"><div class="v" id="statOnsiteDays">0</div><div class="l">Onsite Days</div></div>
-  <div class="stat"><div class="v" id="statProgress">0%</div><div class="l">Progress</div></div>
+  <div class="stat"><div class="v" id="statWorkshopPct">0%</div><div class="l">Workshop %</div></div>
+  <div class="stat"><div class="v" id="statOnsitePct">0%</div><div class="l">Onsite %</div></div>
+  <div class="stat"><div class="v" id="statCombinedPct">0%</div><div class="l">Combined %</div></div>
 </div>
 
 <nav class="tabs no-print">
@@ -189,14 +180,21 @@ td input,td select{padding:4px 6px;font-size:12px;background:#161616;}
     <div class="card">
       <h3>Schedule Parameters</h3>
       <div class="grid cols-4">
-        <div class="field"><label>Start Date</label><input type="date" id="p_startDate" oninput="onProjectField('startDate',this.value)"></div>
-        <div class="field"><label>Target Completion</label><input type="date" id="p_targetDate" oninput="onProjectField('targetDate',this.value)"></div>
+        <div class="field"><label>Fabrication Start Date</label><input type="date" id="p_startDate" oninput="onProjectField('startDate',this.value)"></div>
+        <div class="field"><label>Fabrication Target End Date</label><input type="date" id="p_targetDate" oninput="onProjectField('targetDate',this.value)"></div>
         <div class="field"><label>Working Days / Week</label>
           <select id="p_workingDaysPerWeek" onchange="onProjectField('workingDaysPerWeek',Number(this.value))">
             <option value="5">5 (Mon–Fri)</option><option value="6" selected>6 (Mon–Sat)</option><option value="7">7</option>
           </select>
         </div>
         <div class="field"><label>Daily Working Hours</label><input type="number" id="p_dailyWorkingHours" value="8" oninput="onProjectField('dailyWorkingHours',Number(this.value))"></div>
+      </div>
+      <div class="grid cols-4" style="margin-top:12px;">
+        <div class="field">
+          <label>Delivery Lead (working days)</label>
+          <input type="number" min="0" id="p_fabricationLeadDays" value="2" oninput="onProjectField('fabricationLeadDays',Number(this.value))">
+          <div class="hint">Gap between a member's Workshop <b>completion</b> and its Onsite start, for transport/delivery to site. Auto-schedule uses this as a default — you can still edit any Onsite Start date by hand afterwards.</div>
+        </div>
       </div>
     </div>
 
@@ -228,16 +226,18 @@ td input,td select{padding:4px 6px;font-size:12px;background:#161616;}
         <h3 style="border:none;margin:0;">Steel Members</h3>
         <div class="spacer"></div>
         <button class="btn" onclick="addMemberRow()">+ Add Member</button>
+        <button class="btn" onclick="fillOutputRates()">Fill Out/Day</button>
         <button class="btn solid" onclick="autoCalcDates('workshop')">Auto-schedule Workshop</button>
         <button class="btn solid" onclick="autoCalcDates('onsite')">Auto-schedule Onsite</button>
       </div>
+      <div id="batchLegend" style="margin-bottom:10px;"></div>
       <div class="table-wrap">
         <table>
           <thead><tr>
             <th style="width:26px;"></th>
             <th>Code</th><th style="min-width:170px;">Description</th><th>Category</th><th>Section</th>
             <th>Unit</th><th>Qty</th><th>Weight(kg)</th><th>Length(m)</th>
-            <th>Complexity</th><th>Lifting</th><th>Out/Day</th><th>Crew</th><th style="width:26px;"></th>
+            <th>Complexity</th><th>Lifting</th><th>Wksp Out/Day</th><th>Site Out/Day</th><th>Crew</th><th style="width:26px;"></th>
           </tr></thead>
           <tbody id="membersBody"></tbody>
         </table>
@@ -301,6 +301,7 @@ td input,td select{padding:4px 6px;font-size:12px;background:#161616;}
 
   <!-- ===================== WORKSHOP SCHEDULE ===================== -->
   <section class="panel" id="panel-workshop">
+    <div class="card" id="resCalcWorkshop"></div>
     <div class="card">
       <h3>Workshop Fabrication Schedule</h3>
       <div id="workshopGantt"></div>
@@ -317,8 +318,13 @@ td input,td select{padding:4px 6px;font-size:12px;background:#161616;}
 
   <!-- ===================== ONSITE SCHEDULE ===================== -->
   <section class="panel" id="panel-onsite">
+    <div class="card" id="resCalcOnsite"></div>
     <div class="card">
       <h3>Onsite Erection Schedule</h3>
+      <div class="hint" style="margin-bottom:8px;">
+        Auto-schedule floors each member's Onsite Start at its Workshop completion date + <b id="onsiteDeliveryLeadDisplay">2</b> working day(s) delivery lead.
+        <a href="#" onclick="switchTab('setup');return false;">Change this in Project Setup</a>.
+      </div>
       <div id="onsiteGantt"></div>
     </div>
     <div class="card">
@@ -400,15 +406,34 @@ td input,td select{padding:4px 6px;font-size:12px;background:#161616;}
 
 <!-- ===================== PRINT OPTIONS MODAL ===================== -->
 <div class="modal-bg no-print" id="printModal">
-  <div class="modal" style="max-width:380px;">
+  <div class="modal" style="max-width:460px;">
     <button class="modal-close" onclick="closeModal('printModal')">&times;</button>
-    <h3>What do you want to print?</h3>
-    <div class="hint" style="margin-bottom:12px;">Choose a schedule to print — it doesn't need to be the tab you're currently viewing.</div>
-    <div style="display:flex;flex-direction:column;gap:8px;">
-      <button class="btn solid" onclick="printSchedule('workshop')">🏭 Workshop Fabrication Plan</button>
-      <button class="btn solid" onclick="printSchedule('onsite')">🏗 Onsite Erection Plan</button>
-      <button class="btn" onclick="printSchedule('combined')">Combined View</button>
-      <button class="btn" onclick="printSchedule('both')">Workshop + Onsite (both)</button>
+    <h3>Build Print Document</h3>
+    <div class="hint" style="margin-bottom:12px;">Tick any combination of sections — only checked items are included in the printed document. A signature block is always added at the end of each included section.</div>
+
+    <div class="section-title">Project</div>
+    <label class="print-opt"><input type="checkbox" id="po_projectInfo" checked><span>Project Information header (name, client, dates)</span></label>
+    <label class="print-opt"><input type="checkbox" id="po_showDateColumns" checked><span>Show Start/End date columns in detailed schedules</span></label>
+
+    <div class="section-title">Workshop</div>
+    <label class="print-opt"><input type="checkbox" id="po_workshopSchedule" checked><span>Workshop Fabrication — detailed member schedule</span></label>
+    <label class="print-opt"><input type="checkbox" id="po_workshopSummary"><span>Workshop Fabrication — category summary only</span></label>
+    <label class="print-opt"><input type="checkbox" id="po_workshopResourcePlan"><span>Workshop resource calculator (team scenarios)</span></label>
+
+    <div class="section-title">Onsite</div>
+    <label class="print-opt"><input type="checkbox" id="po_onsiteSchedule" checked><span>Onsite Erection — detailed member schedule</span></label>
+    <label class="print-opt"><input type="checkbox" id="po_onsiteSummary"><span>Onsite Erection — category summary only</span></label>
+    <label class="print-opt"><input type="checkbox" id="po_onsiteResourcePlan"><span>Onsite resource calculator (team scenarios)</span></label>
+
+    <div class="section-title">Combined</div>
+    <label class="print-opt"><input type="checkbox" id="po_combinedStats"><span>Combined Project Summary (overall stats)</span></label>
+    <label class="print-opt"><input type="checkbox" id="po_combinedCategory"><span>Combined Status by Category</span></label>
+
+    <div style="display:flex;gap:8px;margin-top:16px;">
+      <button class="btn small" onclick="printOptSelectAll(true)">Select all</button>
+      <button class="btn small" onclick="printOptSelectAll(false)">Select none</button>
+      <div class="spacer"></div>
+      <button class="btn solid" onclick="printBuiltDocument()">🖨 Print</button>
     </div>
   </div>
 </div>
@@ -475,7 +500,21 @@ const CATEGORY_OPTIONS = [
 ];
 const UNIT_OPTIONS = ["No.","m","m²","kg","ton"];
 const COMPLEXITY_OPTIONS = ["simple","standard","complex"];
+const STATUS_OPTIONS = [
+  ["pending","Pending"], ["in_progress","In Progress"], ["completed","Completed"],
+  ["on_target","On Target"], ["behind","Behind"], ["on_hold","On Hold"],
+];
 const LIFTING_OPTIONS = ["crane","manual","either"];
+
+// Standard team make-up used by the Resource Calculator. A workshop team is
+// 1 Fundi + 1 Helper; an onsite erection team is 1 Fundi + 2 Kym (mates).
+// This mirrors the per-item crewSize already used for scheduling, just
+// expressed as a role breakdown so we can report actual headcount to mobilize.
+const TEAM_COMPOSITION = {
+  workshop: { roleA:"Fundi", roleACount:1, roleB:"Helper", roleBCount:1 },
+  onsite:   { roleA:"Fundi", roleACount:1, roleB:"Kym",    roleBCount:2 },
+};
+
 
 const ONSITE_RATES = {
   "Steel Columns (light <100kg)": { outputPerDay:12, manHoursPerUnit:2, crewSize:4, unit:"No." },
@@ -538,7 +577,7 @@ let state = {
   id: null, // supabase row id (also used as project_id text key)
   project: {
     name:"Untitled Project", client:"", projectNumber:"", siteLocation:"",
-    startDate:"", targetDate:"", workingDaysPerWeek:6, dailyWorkingHours:8,
+    startDate:"", targetDate:"", workingDaysPerWeek:6, dailyWorkingHours:8, fabricationLeadDays:2,
     craneAvailable:true, craneType:"", maxCraneCapacity:null, workHeight:null,
     siteAccess:"", weatherRiskFactor:5, complexityFactor:5, contingencyFactor:10,
   },
@@ -555,8 +594,30 @@ function blankMember(){
     quantity:1, weight:null, length:null, section:"", complexity:"standard", liftingMethod:"either",
     workshopStartDate:"", workshopEndDate:"", workshopDuration:null, workshopStatus:"pending", workshopActualOutput:0,
     onsiteStartDate:"", onsiteEndDate:"", onsiteDuration:null, onsiteStatus:"pending", onsiteActualOutput:0,
-    outputPerDay:null, manHoursPerUnit:null, crewSize:2, dependencies:"", notes:"", sortOrder: nextSortOrder++,
+    outputPerDay:null, workshopOutputPerDay:null, onsiteOutputPerDay:null, manHoursPerUnit:null, crewSize:2, dependencies:"", notes:"", sortOrder: nextSortOrder++,
+    batchId:null, batchLabel:"", batchColor:null, importedAt:null,
   };
+}
+
+/* ============================================================
+   IMPORT BATCH COLOR-CODING
+   Each PDF/AI-extracted import gets its own batch id + distinct
+   color so it's visually traceable in the Members table, and the
+   members are ordered chronologically (by import/creation time —
+   sortOrder already increments monotonically so this falls out
+   naturally as long as we assign sortOrder at commit time).
+   ============================================================ */
+const BATCH_PALETTE = ["#e6a23c","#67c23a","#f56c6c","#8e5cd9","#e685c9","#4da6ff","#d4b106","#20c9c0","#ff8c42","#9fd15b"];
+function nextBatchColor(){
+  // Count distinct batches already present on the loaded project (not a
+  // volatile counter) so a fresh page load / project reload always picks
+  // the next unused color in the palette instead of restarting at 0 and
+  // colliding with an existing batch.
+  const usedColors = new Set(state.members.filter(m=>m.batchId).map(m=>m.batchColor));
+  const distinctBatches = new Set(state.members.filter(m=>m.batchId).map(m=>m.batchId)).size;
+  // Prefer a palette color not currently in use; fall back to cycling by batch count.
+  const unused = BATCH_PALETTE.find(c=>!usedColors.has(c));
+  return unused || BATCH_PALETTE[distinctBatches % BATCH_PALETTE.length];
 }
 
 /* ============================================================
@@ -579,6 +640,19 @@ function addWorkingDays(startDate, days, wdpw){
   }
   return current;
 }
+function countWorkingDays(startISO, endISO, wdpw){
+  wdpw = wdpw||6;
+  const s = parseISO(startISO), e = parseISO(endISO);
+  if(!s || !e || e<=s) return 0;
+  let count=0, cur=new Date(s);
+  while(cur<e){
+    cur = addDays(cur,1);
+    if(wdpw===6 && cur.getDay()===0) continue;
+    if(wdpw===5 && (cur.getDay()===0||cur.getDay()===6)) continue;
+    count++;
+  }
+  return count;
+}
 function calculateDuration(qty, outputPerDay, complexity){
   let factor = 1;
   if(complexity==="complex") factor = 1.3;
@@ -596,37 +670,109 @@ function findRateForDescription(description, type){
   }
   return null;
 }
-function autoCalculateDates(members, projectStartDate, wdpw, type){
+function nextWorkingDay(date, wdpw){
+  let d = new Date(date);
+  while((wdpw===6 && d.getDay()===0) || (wdpw===5 && (d.getDay()===0||d.getDay()===6))){
+    d = addDays(d,1);
+  }
+  return d;
+}
+function autoCalculateDates(members, projectStartDate, wdpw, type, fabricationLeadDays){
   if(!projectStartDate || members.length===0) return members;
   let currentDate = parseISO(projectStartDate);
   if(!currentDate) return members;
+  currentDate = nextWorkingDay(currentDate, wdpw);
   const sorted = [...members].sort((a,b)=>a.sortOrder-b.sortOrder);
+  const outputKey = type==='onsite' ? 'onsiteOutputPerDay' : 'workshopOutputPerDay';
   for(const member of sorted){
     const rate = findRateForDescription(member.description, type);
-    const outputPerDay = member.outputPerDay || (rate && rate.outputPerDay) || 10;
+    // Per-type output rate takes priority so workshop and onsite never
+    // clobber each other; manual "outputPerDay" override (if the user
+    // typed one into the shared field) is used only if no per-type
+    // value or matching rate exists yet.
+    const outputPerDay = member[outputKey] || (rate && rate.outputPerDay) || member.outputPerDay || 10;
     const manHoursPerUnit = member.manHoursPerUnit || (rate && rate.manHoursPerUnit) || 1;
     const crewSize = member.crewSize || (rate && rate.crewSize) || 2;
     const duration = calculateDuration(member.quantity, outputPerDay, member.complexity);
-    const endDate = addWorkingDays(currentDate, duration, wdpw);
+
+    let memberStart = currentDate;
+    if(type==="onsite"){
+      // Onsite for a given member is floored at its own fabrication
+      // COMPLETION date plus a delivery lead (default 2 working days,
+      // editable in Project Setup) — it can never start the same day
+      // fabrication finishes, let alone the day it starts. This is a
+      // default only: the resulting Onsite Start can still be revised
+      // by hand afterwards in the Members/Onsite table.
+      const lead = Math.max(0, Number(fabricationLeadDays)||0);
+      if(member.workshopEndDate){
+        const wsEnd = parseISO(member.workshopEndDate);
+        if(wsEnd){
+          const earliestOnsite = nextWorkingDay(addWorkingDays(wsEnd, Math.max(1,lead), wdpw), wdpw);
+          if(earliestOnsite > memberStart) memberStart = earliestOnsite;
+        }
+      }
+    }
+
+    const endDate = addWorkingDays(memberStart, duration, wdpw);
     if(type==="workshop"){
-      member.workshopStartDate = fmtISO(currentDate);
+      member.workshopStartDate = fmtISO(memberStart);
       member.workshopEndDate = fmtISO(endDate);
       member.workshopDuration = duration;
     } else {
-      member.onsiteStartDate = fmtISO(currentDate);
+      member.onsiteStartDate = fmtISO(memberStart);
       member.onsiteEndDate = fmtISO(endDate);
       member.onsiteDuration = duration;
     }
-    member.outputPerDay = outputPerDay;
+    member[outputKey] = outputPerDay;
     member.manHoursPerUnit = manHoursPerUnit;
     member.crewSize = crewSize;
-    currentDate = addDays(endDate,1);
-    while((wdpw===6 && currentDate.getDay()===0) || (wdpw===5 && (currentDate.getDay()===0||currentDate.getDay()===6))){
-      currentDate = addDays(currentDate,1);
-    }
+    currentDate = nextWorkingDay(addDays(endDate,1), wdpw);
   }
   return members;
 }
+/* ============================================================
+   VALIDATION: Onsite start must be >= Workshop end + lead days
+   Catches manually-typed dates that skip the delivery lead the
+   auto-scheduler would otherwise enforce (see autoCalculateDates).
+   ============================================================ */
+function checkLeadTimeViolations(){
+  const lead = Math.max(0, Number(state.project.fabricationLeadDays)||0);
+  const violations = [];
+  for(const m of state.members){
+    if(!m.workshopEndDate || !m.onsiteStartDate) continue;
+    const wsEnd = parseISO(m.workshopEndDate);
+    const osStart = parseISO(m.onsiteStartDate);
+    if(!wsEnd || !osStart) continue;
+    const gapDays = Math.round((osStart-wsEnd)/86400000);
+    if(gapDays < lead){
+      violations.push({ member:m, gapDays, required:lead });
+    }
+  }
+  return violations;
+}
+function renderLeadTimeWarning(){
+  const violations = checkLeadTimeViolations();
+  let el = document.getElementById('leadTimeWarning');
+  if(!el){
+    el = document.createElement('div');
+    el.id = 'leadTimeWarning';
+    el.className = 'no-print';
+    el.style.cssText = 'background:rgba(210,153,34,.12);border:1px solid rgba(210,153,34,.4);color:var(--amber);padding:10px 18px;font-size:12px;';
+    const main = document.querySelector('main');
+    main.parentNode.insertBefore(el, main);
+  }
+  if(violations.length===0){ el.style.display='none'; el.innerHTML=''; return; }
+  el.style.display='block';
+  el.innerHTML = `⚠ <b>${violations.length} member(s)</b> have an Onsite start date that doesn't allow the required
+    ${state.project.fabricationLeadDays||0}-working-day delivery lead after Workshop completion:
+    <ul style="margin:6px 0 0 18px;padding:0;">
+      ${violations.slice(0,8).map(v=>`<li>${esc(v.member.description)||'(untitled)'} — Workshop ends ${displayDate(v.member.workshopEndDate)},
+        Onsite starts ${displayDate(v.member.onsiteStartDate)} (only ${v.gapDays<0?'−':''}${Math.abs(v.gapDays)}d gap, needs ${v.required}d).
+        <a href="#" onclick="switchTab('onsite');return false;">Fix in Onsite Schedule</a></li>`).join('')}
+      ${violations.length>8?`<li>…and ${violations.length-8} more.</li>`:''}
+    </ul>`;
+}
+
 function statusColor(status){
   switch(status){
     case "completed": return "var(--green)";
@@ -639,19 +785,134 @@ function statusColor(status){
 }
 
 /* ============================================================
+   RESOURCE CALCULATOR — "if I have N days left and 1 team can't
+   make it, how many teams (Fundi+Kym / Fundi+Helper) do I need?"
+   Mirrors the logic in the uploaded Resource Calculator template:
+   total single-team workload vs. available working days (with a
+   contingency buffer) drives how many teams to mobilize. This is
+   a planning aid layered on top of the schedule — it does NOT
+   change each member's individually scheduled dates.
+   ============================================================ */
+function totalWorkloadDays(type){
+  const durKey = type==='workshop' ? 'workshopDuration' : 'onsiteDuration';
+  const outputKey = type==='onsite' ? 'onsiteOutputPerDay' : 'workshopOutputPerDay';
+  return state.members.reduce((sum,m)=>{
+    if(m[durKey]) return sum + Number(m[durKey]);
+    const rate = findRateForDescription(m.description, type);
+    const outputPerDay = m[outputKey] || (rate && rate.outputPerDay) || m.outputPerDay || 10;
+    return sum + calculateDuration(m.quantity, outputPerDay, m.complexity);
+  }, 0);
+}
+function computeResourcePlan(type){
+  const totalDays = totalWorkloadDays(type);
+  const wdpw = state.project.workingDaysPerWeek || 6;
+  const contingency = Number(state.project.contingencyFactor)||0;
+  const startISO = state.project[type==='workshop'?'resCalcWorkshopStart':'resCalcOnsiteStart'] || state.project.startDate;
+  const targetISO = state.project[type==='workshop'?'resCalcWorkshopTarget':'resCalcOnsiteTarget'] || state.project.targetDate;
+  let availableWorkingDays = null, effectiveDays = null;
+  if(startISO && targetISO){
+    availableWorkingDays = countWorkingDays(startISO, targetISO, wdpw);
+    effectiveDays = availableWorkingDays * (1 - contingency/100);
+  }
+  const recommendedTeams = (effectiveDays && effectiveDays>0)
+    ? Math.max(1, Math.ceil(totalDays / effectiveDays))
+    : 1;
+  function scenario(teams){
+    teams = Math.max(1, Math.round(teams));
+    const duration = teams>0 ? totalDays/teams : totalDays;
+    const startD = startISO ? parseISO(startISO) : null;
+    const completion = startD ? addWorkingDays(startD, duration, wdpw) : null;
+    const completionISO = completion ? fmtISO(completion) : null;
+    const onTrack = (targetISO && completionISO) ? (parseISO(completionISO) <= parseISO(targetISO)) : null;
+    const comp = TEAM_COMPOSITION[type];
+    return {
+      teams, duration: Math.round(duration*10)/10, completionISO, onTrack,
+      roleACount: teams*comp.roleACount, roleBCount: teams*comp.roleBCount,
+      totalWorkforce: teams*(comp.roleACount+comp.roleBCount),
+    };
+  }
+  return { totalDays: Math.round(totalDays*10)/10, availableWorkingDays, effectiveDays: effectiveDays!==null?Math.round(effectiveDays*10)/10:null, recommendedTeams, startISO, targetISO, scenario };
+}
+function onResCalcField(type, key, val){
+  state.project[key] = val;
+  if(type==='workshop') renderWorkshop(); else renderOnsite();
+}
+function renderResourceCalc(type){
+  const el = document.getElementById(type==='workshop'?'resCalcWorkshop':'resCalcOnsite');
+  if(!el) return;
+  const plan = computeResourcePlan(type);
+  const comp = TEAM_COMPOSITION[type];
+  const startKey = type==='workshop'?'resCalcWorkshopStart':'resCalcOnsiteStart';
+  const targetKey = type==='workshop'?'resCalcWorkshopTarget':'resCalcOnsiteTarget';
+  const startVal = state.project[startKey] || state.project.startDate || "";
+  const targetVal = state.project[targetKey] || state.project.targetDate || "";
+
+  // Progressive scenarios: 1 team, 2 teams, 3 teams... up one past whatever
+  // is needed to reach ON TRACK (or up to recommended+2 if dates aren't set),
+  // so Dennis can see exactly where the delayed→on-track line falls.
+  const maxTeamsToShow = Math.max(plan.recommendedTeams + 2, 4);
+  const scenarios = [];
+  for(let t=1; t<=maxTeamsToShow; t++){
+    scenarios.push({ label:`${t} team${t!==1?'s':''}`, teams:t });
+  }
+  const rows = scenarios.map(s=>{
+      const r = plan.scenario(s.teams);
+      const isRecommended = s.teams===plan.recommendedTeams;
+      const statusBadge = r.onTrack===null ? `<span class="hint">set dates →</span>`
+        : `<span class="badge ${r.onTrack?'on_target':'behind'}">${r.onTrack?'ON TRACK':'DELAYED'}</span>`;
+      return `<tr ${isRecommended?'style="outline:1px solid var(--gold);"':''}>
+        <td>${esc(s.label)}${isRecommended?' <span class="hint">(recommended)</span>':''}</td>
+        <td class="mono">${r.teams}</td>
+        <td class="mono">${r.roleACount} ${esc(comp.roleA)}${r.roleACount!==1?'s':''} + ${r.roleBCount} ${esc(comp.roleB)}${r.roleBCount!==1?'s':''}</td>
+        <td class="mono">${r.totalWorkforce}</td>
+        <td class="mono">${r.duration}d</td>
+        <td>${r.completionISO ? displayDate(r.completionISO) : '—'}</td>
+        <td>${statusBadge}</td>
+      </tr>`;
+    }).join('');
+
+  el.innerHTML = `
+    <h3>Resource Calculator — ${type==='workshop'?'Workshop':'Onsite'} Team Mobilization</h3>
+    <div class="grid cols-4" style="margin-bottom:12px;">
+      <div class="field"><label>Start Date (for this calc)</label>
+        <input type="date" value="${startVal}" onchange="onResCalcField('${type}','${startKey}',this.value)"></div>
+      <div class="field"><label>Target Completion Date</label>
+        <input type="date" value="${targetVal}" onchange="onResCalcField('${type}','${targetKey}',this.value)"></div>
+      <div class="stat" style="border-left:none;"><div class="v">${plan.totalDays}d</div><div class="l">Total Workload (1 team)</div></div>
+      <div class="stat"><div class="v">${plan.recommendedTeams}</div><div class="l">Recommended Teams</div></div>
+    </div>
+    ${plan.availableWorkingDays!==null ? `<p class="hint" style="margin-top:-6px;">
+      Available working days between start and target: <b>${plan.availableWorkingDays}</b> ·
+      after ${state.project.contingencyFactor||0}% contingency buffer: <b>${plan.effectiveDays}</b> effective days.
+    </p>` : `<p class="hint" style="margin-top:-6px;">Set both dates above to see available days and an ON TRACK / DELAYED status per scenario.</p>`}
+    <div class="table-wrap">
+      <table>
+        <thead><tr><th>Scenario</th><th>Teams</th><th>Labor Needed</th><th>Total Workforce</th><th>Duration</th><th>Completion</th><th>Status</th></tr></thead>
+        <tbody>${rows}</tbody>
+      </table>
+    </div>`;
+}
+
+
+/* ============================================================
    RENDER: header stats
    ============================================================ */
 function renderHeader(){
   document.getElementById('hdrProjectName').textContent = state.project.name || "Untitled Project";
   const m = state.members;
   document.getElementById('statMembers').textContent = m.length;
-  document.getElementById('statQty').textContent = m.reduce((s,x)=>s+(Number(x.quantity)||0),0);
+  const totalQty = m.reduce((s,x)=>s+(Number(x.quantity)||0),0);
+  document.getElementById('statQty').textContent = totalQty;
   document.getElementById('statWorkshopDays').textContent = m.reduce((s,x)=>s+(Number(x.workshopDuration)||0),0).toFixed(1);
   document.getElementById('statOnsiteDays').textContent = m.reduce((s,x)=>s+(Number(x.onsiteDuration)||0),0).toFixed(1);
-  const totalTarget = m.reduce((s,x)=>s+(Number(x.quantity)||0),0)*2; // workshop+onsite each count qty
-  const totalActual = m.reduce((s,x)=>s+(Number(x.workshopActualOutput)||0)+(Number(x.onsiteActualOutput)||0),0);
-  const pct = totalTarget>0 ? Math.round((totalActual/totalTarget)*100) : 0;
-  document.getElementById('statProgress').textContent = pct+"%";
+  const wActual = m.reduce((s,x)=>s+(Number(x.workshopActualOutput)||0),0);
+  const oActual = m.reduce((s,x)=>s+(Number(x.onsiteActualOutput)||0),0);
+  const wPct = totalQty>0 ? Math.round((wActual/totalQty)*100) : 0;
+  const oPct = totalQty>0 ? Math.round((oActual/totalQty)*100) : 0;
+  const combinedPct = totalQty>0 ? Math.round(((wActual+oActual)/(totalQty*2))*100) : 0;
+  document.getElementById('statWorkshopPct').textContent = wPct+"%";
+  document.getElementById('statOnsitePct').textContent = oPct+"%";
+  document.getElementById('statCombinedPct').textContent = combinedPct+"%";
 }
 
 /* ============================================================
@@ -672,34 +933,54 @@ function onProjectField(key,val){ state.project[key]=val; renderHeader(); }
 /* ============================================================
    RENDER: members tab
    ============================================================ */
+function renderBatchLegend(){
+  const el = document.getElementById('batchLegend');
+  if(!el) return;
+  const seen = new Map();
+  for(const m of state.members){
+    if(m.batchId && !seen.has(m.batchId)) seen.set(m.batchId, {color:m.batchColor, label:m.batchLabel, count:0});
+    if(m.batchId) seen.get(m.batchId).count++;
+  }
+  if(seen.size===0){ el.innerHTML=''; return; }
+  el.innerHTML = [...seen.values()].map(b=>
+    `<span class="pill" style="border-color:${b.color};"><span style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${b.color};margin-right:5px;"></span>${esc(b.label)} (${b.count})</span>`
+  ).join('');
+}
 function renderMembers(){
   const body = document.getElementById('membersBody');
   const empty = document.getElementById('membersEmpty');
+  renderBatchLegend();
   body.innerHTML = "";
   if(state.members.length===0){ empty.style.display='block'; return; } else { empty.style.display='none'; }
   const sorted = [...state.members].sort((a,b)=>a.sortOrder-b.sortOrder);
   for(const mem of sorted){
     const tr = document.createElement('tr');
+    if(mem.batchColor) tr.style.borderLeft = `3px solid ${mem.batchColor}`;
+    const batchTitle = mem.batchLabel ? `title="${esc(mem.batchLabel)}"` : '';
     tr.innerHTML = `
-      <td class="mono" style="color:var(--muted2);">${mem.sortOrder}</td>
-      <td><input value="${esc(mem.memberCode)}" oninput="updMember('${mem.id}','memberCode',this.value)" style="width:70px;"></td>
+      <td class="mono" style="color:var(--muted2);">
+        ${mem.sortOrder}
+        ${mem.batchColor?`<span ${batchTitle} style="display:inline-block;width:8px;height:8px;border-radius:50%;background:${mem.batchColor};margin-left:4px;vertical-align:middle;"></span>`:''}
+      </td>
+      <td><input value="${esc(mem.memberCode)}" oninput="updMember('${mem.id}','memberCode',this.value)" onchange="updMemberCommit('${mem.id}','memberCode',this.value)" style="width:70px;"></td>
       <td>
-        <input list="descOptions" value="${esc(mem.description)}" oninput="updMember('${mem.id}','description',this.value)" style="min-width:160px;">
+        <input list="descOptions" value="${esc(mem.description)}" oninput="updMember('${mem.id}','description',this.value)" onchange="updMemberCommit('${mem.id}','description',this.value)" style="min-width:160px;">
       </td>
       <td>
-        <select onchange="updMember('${mem.id}','category',this.value)">
+        <select onchange="updMemberCommit('${mem.id}','category',this.value)">
           ${CATEGORY_OPTIONS.map(([v,l])=>`<option value="${v}" ${mem.category===v?'selected':''}>${l}</option>`).join('')}
         </select>
       </td>
-      <td><input value="${esc(mem.section)}" oninput="updMember('${mem.id}','section',this.value)" style="width:120px;" placeholder="e.g. SHS75x75x3"></td>
-      <td><select onchange="updMember('${mem.id}','unit',this.value)">${UNIT_OPTIONS.map(u=>`<option ${mem.unit===u?'selected':''}>${u}</option>`).join('')}</select></td>
-      <td><input type="number" value="${mem.quantity}" oninput="updMember('${mem.id}','quantity',Number(this.value))" style="width:60px;"></td>
-      <td><input type="number" value="${mem.weight??''}" oninput="updMember('${mem.id}','weight',Number(this.value))" style="width:75px;"></td>
-      <td><input type="number" value="${mem.length??''}" oninput="updMember('${mem.id}','length',Number(this.value))" style="width:70px;"></td>
-      <td><select onchange="updMember('${mem.id}','complexity',this.value)">${COMPLEXITY_OPTIONS.map(c=>`<option ${mem.complexity===c?'selected':''}>${c}</option>`).join('')}</select></td>
-      <td><select onchange="updMember('${mem.id}','liftingMethod',this.value)">${LIFTING_OPTIONS.map(c=>`<option ${mem.liftingMethod===c?'selected':''}>${c}</option>`).join('')}</select></td>
-      <td><input type="number" value="${mem.outputPerDay??''}" oninput="updMember('${mem.id}','outputPerDay',Number(this.value))" style="width:60px;"></td>
-      <td><input type="number" value="${mem.crewSize}" oninput="updMember('${mem.id}','crewSize',Number(this.value))" style="width:50px;"></td>
+      <td><input value="${esc(mem.section)}" oninput="updMember('${mem.id}','section',this.value)" onchange="updMemberCommit('${mem.id}','section',this.value)" style="width:120px;" placeholder="e.g. SHS75x75x3"></td>
+      <td><select onchange="updMemberCommit('${mem.id}','unit',this.value)">${UNIT_OPTIONS.map(u=>`<option ${mem.unit===u?'selected':''}>${u}</option>`).join('')}</select></td>
+      <td><input type="number" value="${mem.quantity}" oninput="updMember('${mem.id}','quantity',Number(this.value))" onchange="updMemberCommit('${mem.id}','quantity',Number(this.value))" style="width:60px;"></td>
+      <td><input type="number" value="${mem.weight??''}" oninput="updMember('${mem.id}','weight',Number(this.value))" onchange="updMemberCommit('${mem.id}','weight',Number(this.value))" style="width:75px;"></td>
+      <td><input type="number" value="${mem.length??''}" oninput="updMember('${mem.id}','length',Number(this.value))" onchange="updMemberCommit('${mem.id}','length',Number(this.value))" style="width:70px;"></td>
+      <td><select onchange="updMemberCommit('${mem.id}','complexity',this.value)">${COMPLEXITY_OPTIONS.map(c=>`<option ${mem.complexity===c?'selected':''}>${c}</option>`).join('')}</select></td>
+      <td><select onchange="updMemberCommit('${mem.id}','liftingMethod',this.value)">${LIFTING_OPTIONS.map(c=>`<option ${mem.liftingMethod===c?'selected':''}>${c}</option>`).join('')}</select></td>
+      <td><input type="number" value="${mem.workshopOutputPerDay??''}" oninput="updMember('${mem.id}','workshopOutputPerDay',Number(this.value))" onchange="updMemberCommit('${mem.id}','workshopOutputPerDay',Number(this.value))" style="width:60px;" placeholder="auto" title="Workshop (fabrication) output per day"></td>
+      <td><input type="number" value="${mem.onsiteOutputPerDay??''}" oninput="updMember('${mem.id}','onsiteOutputPerDay',Number(this.value))" onchange="updMemberCommit('${mem.id}','onsiteOutputPerDay',Number(this.value))" style="width:60px;" placeholder="auto" title="Onsite (erection) output per day"></td>
+      <td><input type="number" value="${mem.crewSize}" oninput="updMember('${mem.id}','crewSize',Number(this.value))" onchange="updMemberCommit('${mem.id}','crewSize',Number(this.value))" style="width:50px;"></td>
       <td><button class="icon-btn" onclick="deleteMember('${mem.id}')">✕</button></td>
     `;
     body.appendChild(tr);
@@ -712,16 +993,45 @@ function renderMembers(){
 }
 function esc(s){ return (s===null||s===undefined?"":String(s)).replace(/"/g,'&quot;').replace(/</g,'&lt;'); }
 function updMember(id, key, val){
+  // Live handler: updates state only, no downstream re-render. Safe to
+  // call on every keystroke without risking focus loss elsewhere.
   const mem = state.members.find(m=>m.id===id);
   if(!mem) return;
   mem[key]=val;
   if(key==='description'){
     const wRate = findRateForDescription(val,'workshop');
     const oRate = findRateForDescription(val,'onsite');
-    if(!mem.outputPerDay && (wRate||oRate)) mem.outputPerDay = (oRate||wRate).outputPerDay;
+    if(!mem.workshopOutputPerDay && wRate) mem.workshopOutputPerDay = wRate.outputPerDay;
+    if(!mem.onsiteOutputPerDay && oRate) mem.onsiteOutputPerDay = oRate.outputPerDay;
   }
+}
+function updMemberCommit(id, key, val){
+  // Commit handler: call on blur/change once editing has actually
+  // finished, so Workshop/Onsite/Combined/header catch up with the
+  // latest values without rebuilding anything mid-keystroke.
+  updMember(id, key, val);
   renderHeader();
-  renderWorkshop(); renderOnsite(); renderCombined();
+  renderWorkshop(); renderOnsite(); renderCombined(); renderLeadTimeWarning();
+}
+function fillOutputRates(){
+  // Backfills Workshop/Onsite Out/Day for every member from the rate
+  // tables, matched by description. Only fills in blanks — never
+  // overwrites a value Dennis already typed in manually. Useful after
+  // a PDF/AI import batch, since those rows never passed through the
+  // description-change handler that normally auto-fills this.
+  let filledW = 0, filledO = 0, unmatched = [];
+  for(const mem of state.members){
+    const wRate = findRateForDescription(mem.description,'workshop');
+    const oRate = findRateForDescription(mem.description,'onsite');
+    if(!mem.workshopOutputPerDay && wRate){ mem.workshopOutputPerDay = wRate.outputPerDay; filledW++; }
+    if(!mem.onsiteOutputPerDay && oRate){ mem.onsiteOutputPerDay = oRate.outputPerDay; filledO++; }
+    if(!mem.workshopOutputPerDay && !wRate) unmatched.push(mem.description||'(untitled)');
+  }
+  renderMembers(); renderHeader();
+  const uniqueUnmatched = [...new Set(unmatched)];
+  let msg = `Filled ${filledW} workshop / ${filledO} onsite output rate(s).`;
+  if(uniqueUnmatched.length) msg += ` No match for: ${uniqueUnmatched.slice(0,4).join(', ')}${uniqueUnmatched.length>4?'…':''} — set those manually.`;
+  toast(msg);
 }
 function addMemberRow(){
   state.members.push(blankMember());
@@ -733,12 +1043,29 @@ function deleteMember(id){
   renderMembers(); renderHeader(); renderWorkshop(); renderOnsite(); renderCombined();
 }
 function autoCalcDates(type){
-  if(!state.project.startDate){ toast('Set a project Start Date in Project Setup first.'); return; }
-  autoCalculateDates(state.members, state.project.startDate, state.project.workingDaysPerWeek, type);
+  if(!state.project.startDate){ toast('Set a Fabrication Start Date in Project Setup first.'); return; }
+  if(type==='onsite'){
+    const missing = state.members.filter(m=>!m.workshopEndDate);
+    if(missing.length===state.members.length){
+      toast('Onsite depends on fabrication — run "Auto-schedule Workshop" first so onsite start dates can default to fabrication completion + delivery lead.');
+      return;
+    }
+    if(missing.length>0){
+      // Some members (often a newly-added import batch) never got a
+      // workshop pass — if we schedule onsite for them now they'd have no
+      // fabrication-completion floor to key off, and would wrongly start
+      // on/near the project start date instead of after their own fab
+      // finishes. Re-run workshop scheduling for everyone first so every
+      // member has a workshopEndDate before onsite is calculated.
+      autoCalculateDates(state.members, state.project.startDate, state.project.workingDaysPerWeek, 'workshop', state.project.fabricationLeadDays);
+      toast(`${missing.length} member(s) had no Workshop schedule yet — recalculated Workshop first so Onsite dates respect fabrication completion + delivery lead.`);
+    }
+  }
+  autoCalculateDates(state.members, state.project.startDate, state.project.workingDaysPerWeek, type, state.project.fabricationLeadDays);
   renderMembers(); renderHeader();
-  if(type==='workshop') renderWorkshop(); else renderOnsite();
-  renderCombined();
-  toast(`${type==='workshop'?'Workshop':'Onsite'} schedule calculated.`);
+  renderWorkshop(); renderOnsite();
+  renderCombined(); renderLeadTimeWarning();
+  toast(`${type==='workshop'?'Workshop':'Onsite'} schedule calculated.${type==='onsite'?' Onsite dates default to fabrication completion + delivery lead — feel free to revise any date by hand.':''}`);
 }
 
 /* ============================================================
@@ -777,13 +1104,92 @@ function renderScheduleTab(type){
   tbodyEl.innerHTML = sorted.map(m=>`
     <tr>
       <td>${esc(m.description)}</td><td class="mono">${esc(m.section)}</td><td>${m.quantity} ${esc(m.unit)}</td>
-      <td>${displayDate(m[startKey])}</td><td>${displayDate(m[endKey])}</td><td>${m[durKey]??'—'}</td>
-      <td><span class="badge ${m[statusKey]}">${m[statusKey].replace('_',' ')}</span></td>
-      <td><input type="number" value="${m[actualKey]||0}" style="width:70px;" oninput="updMember('${m.id}','${actualKey}',Number(this.value))"></td>
+      <td><input type="date" value="${m[startKey]||''}" style="width:130px;" onchange="reviseScheduleStart('${m.id}','${type}',this.value)"></td>
+      <td>${displayDate(m[endKey])}</td><td>${m[durKey]??'—'}</td>
+      <td>
+        <select class="badge ${m[statusKey]}" style="border:none;font:inherit;padding:3px 6px;" onchange="updMember('${m.id}','${statusKey}',this.value)">
+          ${STATUS_OPTIONS.map(([v,l])=>`<option value="${v}" ${m[statusKey]===v?'selected':''}>${l}</option>`).join('')}
+        </select>
+      </td>
+      <td style="white-space:nowrap;">
+        <input type="number" min="0" inputmode="numeric" value="${m[actualKey]||0}" id="actual_${type}_${m.id}" style="width:60px;"
+          oninput="updActualOutputLive('${m.id}','${type}',this.value)"
+          onchange="updActualOutputCommit('${m.id}','${type}',this.value)">
+        <span class="hint" style="display:inline;">/ ${m.quantity} (<span id="pct_${type}_${m.id}">${m.quantity>0?Math.round(((Number(m[actualKey])||0)/m.quantity)*100):0}</span>%)</span>
+        <button class="btn small" style="padding:2px 6px;" onclick="updActualOutputCommit('${m.id}','${type}',${m.quantity})">100%</button>
+      </td>
     </tr>`).join('');
 }
-function renderWorkshop(){ renderScheduleTab('workshop'); }
-function renderOnsite(){ renderScheduleTab('onsite'); }
+function statusFromActual(mem, type, clamped){
+  const statusKey = type+'Status';
+  const qty = Number(mem.quantity)||0;
+  if(clamped<=0) return 'pending';
+  if(qty>0 && clamped>=qty) return 'completed';
+  if(mem[statusKey]==='pending' || mem[statusKey]==='completed') return 'in_progress';
+  return mem[statusKey];
+}
+function updActualOutputLive(id, type, rawVal){
+  // Fires on every keystroke. Updates the underlying number only — it
+  // must NEVER rebuild the table's innerHTML, or the input the user is
+  // actively typing in gets destroyed and loses focus/cursor position
+  // mid-edit. The status badge is updated in place (not re-rendered)
+  // so it still visually tracks progress as you type.
+  const mem = state.members.find(m=>m.id===id);
+  if(!mem) return;
+  const actualKey = type+'ActualOutput', statusKey = type+'Status';
+  const clamped = Math.max(0, Number(rawVal)||0);
+  mem[actualKey] = clamped;
+  mem[statusKey] = statusFromActual(mem, type, clamped);
+  const badgeSelect = document.querySelector(`#actual_${type}_${id}`)?.closest('tr')?.querySelector('select.badge');
+  if(badgeSelect){
+    badgeSelect.value = mem[statusKey];
+    badgeSelect.className = `badge ${mem[statusKey]}`;
+  }
+  const pctSpan = document.getElementById(`pct_${type}_${id}`);
+  if(pctSpan){
+    const qty = Number(mem.quantity)||0;
+    pctSpan.textContent = qty>0 ? Math.round((clamped/qty)*100) : 0;
+  }
+}
+function updActualOutputCommit(id, type, rawVal){
+  // Fires on blur/Enter (or the 100% button). This is where we do the
+  // full re-render, once editing has actually finished, so the Gantt,
+  // Combined view, header stats, and Members tab all catch up without
+  // interrupting anyone still typing.
+  updActualOutputLive(id, type, rawVal);
+  renderScheduleTab(type); renderCombined(); renderMembers(); renderHeader();
+}
+function reviseScheduleStart(id, type, newStartISO){
+  // Lets Dennis manually override an auto-scheduled Start Date (e.g. the
+  // onsite delivery-lead default) for a single member. Recomputes that
+  // member's own End Date from its existing duration, but does NOT
+  // re-cascade other members' dates — this is a deliberate one-off revision.
+  const mem = state.members.find(m=>m.id===id);
+  if(!mem || !newStartISO) return;
+  const startKey = type+'StartDate', endKey = type+'EndDate', durKey = type+'Duration';
+  const wdpw = state.project.workingDaysPerWeek || 6;
+  const newStart = parseISO(newStartISO);
+  if(!newStart) return;
+  mem[startKey] = newStartISO;
+  const duration = mem[durKey] || 1;
+  mem[endKey] = fmtISO(addWorkingDays(newStart, duration, wdpw));
+  renderScheduleTab(type); renderCombined(); renderMembers(); renderLeadTimeWarning();
+  if(type==='onsite' && mem.workshopEndDate){
+    const lead = Math.max(0, Number(state.project.fabricationLeadDays)||0);
+    const gapDays = Math.round((newStart-parseISO(mem.workshopEndDate))/86400000);
+    if(gapDays < lead){
+      toast(`⚠ Onsite start revised, but this is only ${gapDays}d after Workshop completion for "${mem.description||'member'}" — required delivery lead is ${lead}d.`);
+      return;
+    }
+  }
+  toast(`${type==='workshop'?'Workshop':'Onsite'} start revised for "${mem.description||'member'}".`);
+}
+function renderWorkshop(){ renderScheduleTab('workshop'); renderResourceCalc('workshop'); }
+function renderOnsite(){
+  const disp = document.getElementById('onsiteDeliveryLeadDisplay');
+  if(disp) disp.textContent = Number(state.project.fabricationLeadDays)||0;
+  renderScheduleTab('onsite'); renderResourceCalc('onsite');
+}
 
 /* ============================================================
    RENDER: combined view
@@ -846,23 +1252,313 @@ function renderCombined(){
 
 /* ============================================================
    PRINTING — choose which schedule to print regardless of active tab
+   Builds a fully self-contained, static HTML document (no CSS custom
+   properties, no dependence on live SPA DOM/render timing) and prints
+   it through a hidden iframe. window.print() on the live single-page
+   app was producing blank pages on Android's "Save as PDF" pipeline —
+   this sidesteps that entirely by giving the print engine a plain,
+   already-settled document with nothing left to paint.
    ============================================================ */
 function openPrintModal(){ document.getElementById('printModal').classList.add('show'); }
-function printSchedule(which){
-  closeModal('printModal');
-  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('print-active'));
-  if(which==='workshop' || which==='both') document.getElementById('panel-workshop').classList.add('print-active');
-  if(which==='onsite' || which==='both') document.getElementById('panel-onsite').classList.add('print-active');
-  if(which==='combined') document.getElementById('panel-combined').classList.add('print-active');
-  // Make sure the printed panel's own render is current before printing.
-  if(which==='workshop' || which==='both') renderWorkshop();
-  if(which==='onsite' || which==='both') renderOnsite();
-  if(which==='combined') renderCombined();
-  setTimeout(()=>window.print(), 60);
+function printOptSelectAll(val){
+  document.querySelectorAll('#printModal .print-opt input[type=checkbox]').forEach(cb=>cb.checked=val);
 }
-window.addEventListener('afterprint', ()=>{
-  document.querySelectorAll('.panel').forEach(p=>p.classList.remove('print-active'));
-});
+
+function printMemberRowsHtml(type, includeDates){
+  const startKey = type+'StartDate', endKey = type+'EndDate', durKey = type+'Duration', statusKey = type+'Status', actualKey = type+'ActualOutput';
+  const scheduled = [...state.members].filter(m=>m[startKey] && m[endKey]).sort((a,b)=>parseISO(a[startKey])-parseISO(b[startKey]));
+  const colCount = includeDates ? 8 : 6;
+  if(scheduled.length===0) return `<tr><td colspan="${colCount}" style="text-align:center;color:#666;padding:20px;">No ${type} dates scheduled yet.</td></tr>`;
+  return scheduled.map(m=>`
+    <tr>
+      <td>${esc(m.description)||'—'}</td>
+      <td>${esc(m.section)||'—'}</td>
+      <td>${m.quantity} ${esc(m.unit)}</td>
+      ${includeDates ? `<td>${displayDate(m[startKey])}</td><td>${displayDate(m[endKey])}</td>` : ''}
+      <td>${m[durKey]??'—'}</td>
+      <td>${(m[statusKey]||'pending').replace('_',' ')}</td>
+      <td>${m[actualKey]||0} / ${m.quantity}</td>
+    </tr>`).join('');
+}
+
+function printSummaryTableHtml(type){
+  // Category-level rollup used when the detailed member table is excluded —
+  // still gives a useful printed summary rather than nothing at all.
+  const startKey = type+'StartDate', endKey = type+'EndDate', statusKey = type+'Status';
+  const byCat = {};
+  for(const mem of state.members){
+    if(!byCat[mem.category]) byCat[mem.category] = {count:0, qty:0, done:0, minStart:null, maxEnd:null};
+    const c = byCat[mem.category];
+    c.count++; c.qty += Number(mem.quantity)||0;
+    if(mem[statusKey]==='completed') c.done++;
+    if(mem[startKey]){ const d=parseISO(mem[startKey]); if(d && (!c.minStart || d<c.minStart)) c.minStart=d; }
+    if(mem[endKey]){ const d=parseISO(mem[endKey]); if(d && (!c.maxEnd || d>c.maxEnd)) c.maxEnd=d; }
+  }
+  const catLabel = Object.fromEntries(CATEGORY_OPTIONS);
+  const rows = Object.entries(byCat).map(([cat,c])=>`
+    <tr>
+      <td>${esc(catLabel[cat]||cat)}</td>
+      <td>${c.count}</td>
+      <td>${c.qty}</td>
+      <td>${c.minStart?displayDate(fmtISO(c.minStart)):'—'}</td>
+      <td>${c.maxEnd?displayDate(fmtISO(c.maxEnd)):'—'}</td>
+      <td>${c.done} / ${c.count}</td>
+    </tr>`).join('') || `<tr><td colspan="6">No members yet.</td></tr>`;
+  return `<table>
+      <thead><tr><th>Category</th><th>Members</th><th>Total Qty</th><th>Earliest Start</th><th>Latest End</th><th>Completed</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+
+function printSectionDateRangeHtml(type){
+  const startKey = type+'StartDate', endKey = type+'EndDate';
+  const starts = state.members.map(m=>m[startKey]).filter(Boolean).map(parseISO).filter(Boolean);
+  const ends = state.members.map(m=>m[endKey]).filter(Boolean).map(parseISO).filter(Boolean);
+  if(starts.length===0 || ends.length===0) return '';
+  const minStart = new Date(Math.min(...starts));
+  const maxEnd = new Date(Math.max(...ends));
+  const label = type==='workshop' ? 'Fabrication' : 'Onsite Erection';
+  return `<p class="meta-line">${label} Start: <b>${displayDate(fmtISO(minStart))}</b> &nbsp;·&nbsp; ${label} End: <b>${displayDate(fmtISO(maxEnd))}</b></p>`;
+}
+function printScheduleTableHtml(type, includeDates){
+  const title = type==='workshop' ? 'Workshop Fabrication — Detailed Schedule' : 'Onsite Erection — Detailed Schedule';
+  return `
+    <h2>${title}</h2>
+    ${printSectionDateRangeHtml(type)}
+    <table>
+      <thead><tr><th>Description</th><th>Section</th><th>Qty</th>${includeDates?'<th>Start</th><th>End</th>':''}<th>Duration (d)</th><th>Status</th><th>Actual</th></tr></thead>
+      <tbody>${printMemberRowsHtml(type, includeDates)}</tbody>
+    </table>`;
+}
+function printSummarySectionHtml(type){
+  const title = type==='workshop' ? 'Workshop Fabrication — Category Summary' : 'Onsite Erection — Category Summary';
+  return `
+    <h2>${title}</h2>
+    ${printSectionDateRangeHtml(type)}
+    ${printSummaryTableHtml(type)}`;
+}
+function printCombinedStatsHtml(){
+  const m = state.members;
+  const totalQty = m.reduce((s,x)=>s+(Number(x.quantity)||0),0);
+  const wDone = m.filter(x=>x.workshopStatus==='completed').length;
+  const oDone = m.filter(x=>x.onsiteStatus==='completed').length;
+  const wActual = m.reduce((s,x)=>s+(Number(x.workshopActualOutput)||0),0);
+  const oActual = m.reduce((s,x)=>s+(Number(x.onsiteActualOutput)||0),0);
+  const wPct = totalQty? Math.round(wActual/totalQty*100):0;
+  const oPct = totalQty? Math.round(oActual/totalQty*100):0;
+  return `
+    <h2>Combined Project Summary</h2>
+    <table>
+      <thead><tr><th>Metric</th><th>Value</th></tr></thead>
+      <tbody>
+        <tr><td>Total members</td><td>${m.length}</td></tr>
+        <tr><td>Total quantity</td><td>${totalQty}</td></tr>
+        <tr><td>Workshop progress (by output)</td><td>${wPct}% — ${wDone}/${m.length} members completed</td></tr>
+        <tr><td>Onsite progress (by output)</td><td>${oPct}% — ${oDone}/${m.length} members completed</td></tr>
+        <tr><td>Behind schedule</td><td>${m.filter(x=>x.workshopStatus==='behind'||x.onsiteStatus==='behind').length}</td></tr>
+      </tbody>
+    </table>`;
+}
+function printCombinedCategoryHtml(){
+  const byCat = {};
+  for(const mem of state.members){
+    if(!byCat[mem.category]) byCat[mem.category]={count:0,qty:0,wStatuses:[],oStatuses:[]};
+    byCat[mem.category].count++;
+    byCat[mem.category].qty += Number(mem.quantity)||0;
+    byCat[mem.category].wStatuses.push(mem.workshopStatus);
+    byCat[mem.category].oStatuses.push(mem.onsiteStatus);
+  }
+  const dominant = arr => {
+    if(arr.every(s=>s==='completed')) return 'completed';
+    if(arr.some(s=>s==='behind')) return 'behind';
+    if(arr.some(s=>s==='in_progress')) return 'in_progress';
+    return 'pending';
+  };
+  const catLabel = Object.fromEntries(CATEGORY_OPTIONS);
+  const rows = Object.entries(byCat).map(([cat,data])=>`
+    <tr><td>${esc(catLabel[cat]||cat)}</td><td>${data.count}</td><td>${data.qty}</td>
+      <td>${dominant(data.wStatuses).replace('_',' ')}</td>
+      <td>${dominant(data.oStatuses).replace('_',' ')}</td></tr>`).join('') || `<tr><td colspan="5">No members yet.</td></tr>`;
+  return `
+    <h2>Combined Status by Category</h2>
+    <table>
+      <thead><tr><th>Category</th><th>Members</th><th>Total Qty</th><th>Workshop Status</th><th>Onsite Status</th></tr></thead>
+      <tbody>${rows}</tbody>
+    </table>`;
+}
+function printSignoffHtml(){
+  return `
+    <div style="margin-top:24px;padding-top:14px;border-top:2px solid #1c5ea8;">
+    <table style="border:none;"><tr style="border:none;">
+      <td style="border:none;width:220px;vertical-align:bottom;">
+        <div style="height:50px;border-bottom:1px solid #1c5ea8;"></div>
+        <div style="font-weight:700;padding-top:4px;color:#152238;">${esc(SIGNOFF_NAME)}</div>
+        <div style="color:#7488a3;font-size:10px;">Approved / Signed off</div>
+      </td>
+      <td style="border:none;width:180px;vertical-align:bottom;">
+        <div style="color:#7488a3;font-size:10px;text-transform:uppercase;">Date</div>
+        <div style="padding-top:8px;border-bottom:1px solid #1c5ea8;font-weight:600;color:#152238;">${displayDate(fmtISO(new Date()))}</div>
+      </td>
+    </tr></table>
+    </div>`;
+}
+
+function printResourcePlanHtml(type){
+  const plan = computeResourcePlan(type);
+  const comp = TEAM_COMPOSITION[type];
+  const title = type==='workshop' ? 'Workshop Resource Calculator — Team Mobilization' : 'Onsite Resource Calculator — Team Mobilization';
+  const maxTeamsToShow = Math.max(plan.recommendedTeams + 2, 4);
+  const rows = [];
+  for(let t=1; t<=maxTeamsToShow; t++){
+    const r = plan.scenario(t);
+    const isRecommended = t===plan.recommendedTeams;
+    const statusLabel = r.onTrack===null ? 'set dates' : (r.onTrack ? 'ON TRACK' : 'DELAYED');
+    rows.push(`<tr>
+      <td>${t} team${t!==1?'s':''}${isRecommended?' (recommended)':''}</td>
+      <td>${r.teams}</td>
+      <td>${r.roleACount} ${esc(comp.roleA)}${r.roleACount!==1?'s':''} + ${r.roleBCount} ${esc(comp.roleB)}${r.roleBCount!==1?'s':''}</td>
+      <td>${r.totalWorkforce}</td>
+      <td>${r.duration}d</td>
+      <td>${r.completionISO ? displayDate(r.completionISO) : '—'}</td>
+      <td>${statusLabel}</td>
+    </tr>`);
+  }
+  const availabilityNote = plan.availableWorkingDays!==null
+    ? `Available working days between start and target: ${plan.availableWorkingDays} · after ${state.project.contingencyFactor||0}% contingency buffer: ${plan.effectiveDays} effective days.`
+    : `Set both Start and Target dates in the Resource Calculator to see available days and an ON TRACK / DELAYED status per scenario.`;
+  return `
+    <h2>${title}</h2>
+    <p style="font-size:10.5px;color:#555;margin:0 0 8px;">Total workload (1 team): <b>${plan.totalDays}d</b> · Recommended teams: <b>${plan.recommendedTeams}</b><br>${availabilityNote}</p>
+    <table>
+      <thead><tr><th>Scenario</th><th>Teams</th><th>Labor Needed</th><th>Total Workforce</th><th>Duration</th><th>Completion</th><th>Status</th></tr></thead>
+      <tbody>${rows.join('')}</tbody>
+    </table>`;
+}
+
+function getPrintSelections(){
+  const on = id => { const el = document.getElementById(id); return el ? el.checked : false; };
+  return {
+    projectInfo: on('po_projectInfo'),
+    showDateColumns: on('po_showDateColumns'),
+    workshopSchedule: on('po_workshopSchedule'),
+    workshopSummary: on('po_workshopSummary'),
+    workshopResourcePlan: on('po_workshopResourcePlan'),
+    onsiteSchedule: on('po_onsiteSchedule'),
+    onsiteSummary: on('po_onsiteSummary'),
+    onsiteResourcePlan: on('po_onsiteResourcePlan'),
+    combinedStats: on('po_combinedStats'),
+    combinedCategory: on('po_combinedCategory'),
+  };
+}
+
+function buildPrintDocument(sel){
+  const p = state.project;
+  let bodyHtml = '';
+  const workshopIncluded = sel.workshopSchedule || sel.workshopSummary || sel.workshopResourcePlan;
+  const onsiteIncluded = sel.onsiteSchedule || sel.onsiteSummary || sel.onsiteResourcePlan;
+  const combinedIncluded = sel.combinedStats || sel.combinedCategory;
+
+  if(sel.workshopSchedule) bodyHtml += printScheduleTableHtml('workshop', sel.showDateColumns);
+  if(sel.workshopSummary) bodyHtml += printSummarySectionHtml('workshop');
+  if(sel.workshopResourcePlan) bodyHtml += printResourcePlanHtml('workshop');
+  if(workshopIncluded) bodyHtml += printSignoffHtml();
+  if(sel.onsiteSchedule) bodyHtml += printScheduleTableHtml('onsite', sel.showDateColumns);
+  if(sel.onsiteSummary) bodyHtml += printSummarySectionHtml('onsite');
+  if(sel.onsiteResourcePlan) bodyHtml += printResourcePlanHtml('onsite');
+  if(onsiteIncluded) bodyHtml += printSignoffHtml();
+  if(sel.combinedStats) bodyHtml += printCombinedStatsHtml();
+  if(sel.combinedCategory) bodyHtml += printCombinedCategoryHtml();
+  if(combinedIncluded) bodyHtml += printSignoffHtml();
+  if(!workshopIncluded && !onsiteIncluded && !combinedIncluded) bodyHtml += printSignoffHtml();
+
+  const headerHtml = sel.projectInfo ? `
+  <div class="doc-header">
+    <div class="doc-header-brand">🏭 ROPA ENGINEERING</div>
+    <h1>${esc(p.name||'Untitled Project')}</h1>
+    <div class="meta">
+      ${esc(p.client||'')}${p.client&&p.projectNumber?' · ':''}${esc(p.projectNumber||'')}${(p.client||p.projectNumber)&&p.siteLocation?' · ':''}${esc(p.siteLocation||'')}<br>
+      Printed: ${displayDate(fmtISO(new Date()))}
+    </div>
+  </div>` : `
+  <div class="doc-header">
+    <div class="doc-header-brand">🏭 ROPA ENGINEERING</div>
+    <div class="meta">${esc(p.name||'Untitled Project')} &nbsp;·&nbsp; Printed: ${displayDate(fmtISO(new Date()))}</div>
+  </div>`;
+
+  return `<!DOCTYPE html>
+<html><head><meta charset="UTF-8">
+<title>${esc(p.name||'Ropa Project')} — Schedule</title>
+<style>
+  * { box-sizing: border-box; }
+  :root{
+    --navy-dark:#0b1830; --navy:#0f2544; --blue:#1c5ea8; --blue-mid:#3a7bc8; --blue-pale:#eaf2fb;
+    --gold:#b8862f; --ink:#152238; --line:#c7d7ec;
+  }
+  body { font-family: 'Segoe UI', Arial, Helvetica, sans-serif; color: var(--ink); background: #fff; margin: 0; font-size: 12px; }
+  .page { margin: 16px 20px; }
+  .doc-header {
+    background: linear-gradient(135deg, var(--navy-dark), var(--navy) 60%, var(--blue));
+    color: #fff; padding: 18px 22px; border-radius: 6px; margin-bottom: 18px;
+    border-bottom: 4px solid var(--gold);
+  }
+  .doc-header-brand { font-size: 11px; letter-spacing: 1.5px; color: #bcd6f5; font-weight: 700; margin-bottom: 6px; }
+  .doc-header h1 { font-size: 20px; margin: 0 0 6px; color: #fff; }
+  .doc-header .meta { color: #d8e6f7; font-size: 11px; margin: 0; }
+  h2 {
+    font-size: 13px; margin: 22px 0 8px; color: var(--navy); text-transform: uppercase; letter-spacing: .5px;
+    border-bottom: 2px solid var(--blue); padding-bottom: 5px;
+  }
+  h2:first-of-type { margin-top: 4px; }
+  table { width: 100%; border-collapse: collapse; margin-bottom: 10px; }
+  th, td { border: 1px solid var(--line); padding: 5px 7px; text-align: left; font-size: 11px; }
+  th { background: var(--navy); color: #fff; text-transform: uppercase; font-size: 9px; letter-spacing: .3px; }
+  tbody tr:nth-child(even) { background: var(--blue-pale); }
+  tr { page-break-inside: avoid; }
+  .meta-line { font-size: 10.5px; color: #3a5a80; margin: -4px 0 8px; }
+  .doc-footer { margin-top: 24px; padding-top: 8px; border-top: 1px solid var(--line); color: #7488a3; font-size: 9.5px; text-align:center; }
+  @media print {
+    .page { margin: 6mm 8mm; }
+    .doc-header { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    th { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+    tbody tr:nth-child(even) { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  }
+</style>
+</head><body>
+<div class="page">
+  ${headerHtml}
+  ${bodyHtml || '<p style="color:#888;">No sections selected.</p>'}
+  <div class="doc-footer">Ropa Engineering Co. Ltd — Workshop &amp; Onsite Installation Schedule</div>
+</div>
+</body></html>`;
+}
+
+function printBuiltDocument(){
+  const sel = getPrintSelections();
+  const anySelected = Object.values(sel).some(Boolean);
+  if(!anySelected){ toast('Select at least one section to print.'); return; }
+  closeModal('printModal');
+  const html = buildPrintDocument(sel);
+  const iframe = document.createElement('iframe');
+  iframe.style.position = 'fixed';
+  iframe.style.right = '0'; iframe.style.bottom = '0';
+  iframe.style.width = '0'; iframe.style.height = '0';
+  iframe.style.border = '0';
+  document.body.appendChild(iframe);
+  const doc = iframe.contentWindow.document;
+  doc.open(); doc.write(html); doc.close();
+  const cleanup = () => { setTimeout(()=>{ if(iframe.parentNode) iframe.parentNode.removeChild(iframe); }, 500); };
+  iframe.onload = () => {
+    setTimeout(()=>{
+      try{
+        iframe.contentWindow.focus();
+        iframe.contentWindow.print();
+      }catch(e){
+        toast('Could not open print dialog — try again, or check pop-up/print permissions.');
+      }
+      cleanup();
+    }, 150);
+  };
+}
 
 /* ============================================================
    TABS
@@ -911,9 +1607,10 @@ function newProject(){
 }
 function blankProjectDefaults(){
   return { name:"Untitled Project", client:"", projectNumber:"", siteLocation:"",
-    startDate:"", targetDate:"", workingDaysPerWeek:6, dailyWorkingHours:8,
+    startDate:"", targetDate:"", workingDaysPerWeek:6, dailyWorkingHours:8, fabricationLeadDays:2,
     craneAvailable:true, craneType:"", maxCraneCapacity:null, workHeight:null,
-    siteAccess:"", weatherRiskFactor:5, complexityFactor:5, contingencyFactor:10 };
+    siteAccess:"", weatherRiskFactor:5, complexityFactor:5, contingencyFactor:10,
+    resCalcWorkshopStart:"", resCalcWorkshopTarget:"", resCalcOnsiteStart:"", resCalcOnsiteTarget:"" };
 }
 
 /* ============================================================
@@ -973,19 +1670,20 @@ function exportExcel(){
   const rows = [
     ["PROJECT INFORMATION"],
     ["Project Name:", p.name], ["Client:", p.client||""], ["Project Number:", p.projectNumber||""],
-    ["Site Location:", p.siteLocation||""], ["Start Date:", displayDate(p.startDate)], ["Target Date:", displayDate(p.targetDate)],
+    ["Site Location:", p.siteLocation||""], ["Fabrication Start Date:", displayDate(p.startDate)], ["Fabrication Target End Date:", displayDate(p.targetDate)],
     ["Working Days/Week:", p.workingDaysPerWeek], ["Daily Working Hours:", p.dailyWorkingHours],
     ["Crane Available:", p.craneAvailable?"Yes":"No"], [""],
     ["STEEL MEMBERS"],
     ["Member Code","Description","Category","Unit","Quantity","Weight","Length","Section","Complexity","Lifting Method",
-     "Output/Day","Man-Hrs/Unit","Crew Size","Workshop Start","Workshop End","Workshop Duration","Workshop Status",
-     "Onsite Start","Onsite End","Onsite Duration","Onsite Status","Notes"],
+     "Workshop Out/Day","Onsite Out/Day","Man-Hrs/Unit","Crew Size","Workshop Start","Workshop End","Workshop Duration","Workshop Status",
+     "Onsite Start","Onsite End","Onsite Duration","Onsite Status","Import Batch","Notes"],
   ];
   for(const m of state.members){
     rows.push([m.memberCode, m.description, m.category, m.unit, m.quantity, m.weight||"", m.length||"", m.section||"",
-      m.complexity, m.liftingMethod, m.outputPerDay||"", m.manHoursPerUnit||"", m.crewSize,
+      m.complexity, m.liftingMethod, m.workshopOutputPerDay||"", m.onsiteOutputPerDay||"", m.manHoursPerUnit||"", m.crewSize,
       displayDate(m.workshopStartDate), displayDate(m.workshopEndDate), m.workshopDuration||"", m.workshopStatus,
-      displayDate(m.onsiteStartDate), displayDate(m.onsiteEndDate), m.onsiteDuration||"", m.onsiteStatus, m.notes||""]);
+      displayDate(m.onsiteStartDate), displayDate(m.onsiteEndDate), m.onsiteDuration||"", m.onsiteStatus,
+      m.batchLabel||"Manual", m.notes||""]);
   }
   const ws = XLSX.utils.aoa_to_sheet(rows);
   ws['!cols'] = new Array(22).fill({wch:14});
@@ -1175,17 +1873,22 @@ function reviewSelectAll(val){ reviewItems.forEach(it=>it.selected=val); renderR
 function commitReviewedMembers(){
   const chosen = reviewItems.filter(it=>it.selected);
   if(chosen.length===0){ toast('Nothing selected.'); return; }
+  const batchId = 'batch_'+Date.now().toString(36)+'_'+Math.random().toString(36).slice(2,6);
+  const batchColor = nextBatchColor();
+  const importedAt = new Date().toISOString();
+  const batchLabel = `Import ${new Date().toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric'})} ${new Date().toLocaleTimeString('en-GB',{hour:'2-digit',minute:'2-digit'})}`;
   for(const it of chosen){
-    const mem = blankMember();
+    const mem = blankMember(); // sortOrder assigned here, at commit time, so batches stay chronological
     mem.description = it.description; mem.section = it.section; mem.category = it.category;
     mem.unit = it.unit; mem.notes = it.notes; mem.quantity = Number(it.quantity)>0 ? Number(it.quantity) : 1;
+    mem.batchId = batchId; mem.batchColor = batchColor; mem.batchLabel = batchLabel; mem.importedAt = importedAt;
     state.members.push(mem);
   }
   reviewItems = [];
   renderReview();
   document.getElementById('extractStatus').innerHTML = '';
   renderMembers(); renderHeader();
-  toast(`Added ${chosen.length} member(s) to the project. Quantities are AI estimates — verify against the drawing/MTO, then use Auto-schedule.`);
+  toast(`Added ${chosen.length} member(s) as a new color-coded batch ("${batchLabel}"). Quantities are AI estimates — verify against the drawing/MTO, then use Auto-schedule.`);
   switchTab('members');
   document.querySelector('.tab-btn[data-tab="members"]').classList.add('active');
   document.querySelector('.tab-btn[data-tab="drawing"]').classList.remove('active');
@@ -1201,7 +1904,7 @@ function toast(msg){
   window._toastTimer = setTimeout(()=>t.classList.remove('show'), 3200);
 }
 function renderAll(){
-  renderHeader(); renderSetup(); renderMembers(); renderWorkshop(); renderOnsite(); renderCombined(); checkApiKeyWarning(); renderSignoffs();
+  renderHeader(); renderSetup(); renderMembers(); renderWorkshop(); renderOnsite(); renderCombined(); checkApiKeyWarning(); renderSignoffs(); renderLeadTimeWarning();
 }
 
 /* ============================================================
